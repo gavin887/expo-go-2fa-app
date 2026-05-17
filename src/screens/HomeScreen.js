@@ -114,7 +114,7 @@ export function HomeScreen({ navigation }) {
         </Pressable>
       </Modal>
 
-      <View style={styles.toastContainer}>
+      <View style={styles.toastContainer} pointerEvents="none">
         <Toast message={toastMessage} visible={toastVisible} />
       </View>
     </SafeAreaView>
@@ -160,10 +160,12 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 15, fontWeight: '600' },
   toastContainer: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    bottom: 0,
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 60,
   },
 });

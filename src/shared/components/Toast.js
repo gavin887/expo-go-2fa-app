@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-
-const { height, width } = Dimensions.get('window');
 
 export function Toast({ message, visible, duration = 2000 }) {
   const { colors } = useTheme();
@@ -50,7 +48,6 @@ export function Toast({ message, visible, duration = 2000 }) {
       style={[
         styles.container,
         {
-          top: height * 0.9,
           transform: [{ translateY }],
           opacity,
         },
@@ -70,8 +67,6 @@ export function Toast({ message, visible, duration = 2000 }) {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    alignSelf: 'center',
     zIndex: 20,
   },
   text: {
