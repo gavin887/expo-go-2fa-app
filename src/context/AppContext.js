@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAccounts, saveAccounts } from '../features/security/encryption';
 
@@ -13,21 +13,6 @@ const defaultSettings = {
   appLockEnabled: false,
   appLockType: 'none',
 };
-
-// Load settings synchronously for initial state
-function loadInitialSettings() {
-  try {
-    const saved = AsyncStorage.getItem(SETTINGS_KEY);
-    // getItem returns a Promise, but we can use the sync-compatible approach
-    // by storing in a module-level cache
-    return null; // Will be handled below
-  } catch {
-    return null;
-  }
-}
-
-// Module-level cache for synchronous initial state
-let cachedSettings = null;
 
 const initialState = {
   accounts: [],
@@ -66,67 +51,58 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const [ready, setReady] = useState(false);
+  const [isReady, setIsReady] = React.useState(false);
 
-  // Load settings and accounts on mount
+  // Load on mount
   useEffect(() => {
+    let mounted = true;
     const init = async () => {
       // Load settings
       try {
         const saved = await AsyncStorage.getItem(SETTINGS_KEY);
-        if (saved) {
+        if (saved && mounted) {
           const parsed = JSON.parse(saved);
-          cachedSettings = parsed;
+          console.log('[AppContext] Loaded settings:', saved);
           dispatch({ type: 'SET_SETTINGS', payload: { ...defaultSettings, ...parsed } });
+        } else {
+          console.log('[AppContext] No saved settings found, using defaults');
         }
-      } catch {
-        // Use defaults on parse error
+      } catch (e) {
+        console.warn('Failed to load settings:', e);
       }
 
       // Load accounts
       try {
         const accounts = await loadAccounts();
-        if (accounts && accounts.length > 0) {
+        if (accounts && accounts.length > 0 && mounted) {
           dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
         }
-      } catch {
-        // Use empty accounts on error
+      } catch (e) {
+        console.warn('Failed to load accounts:', e);
       }
 
-      setReady(true);
+      if (mounted) setIsReady(true);
     };
     init();
+    return () => { mounted = false; };
   }, []);
 
-  // Save settings when changed (only after initial load)
-  const firstSaveSkipped = useRef(false);
+  // Save settings whenever they change (after mount)
   useEffect(() => {
-    if (!ready) return;
-    // Skip the very first save that comes from loading persisted data
-    if (!firstSaveSkipped.current) {
-      firstSaveSkipped.current = true;
-      // If we just loaded from storage, no need to write back
-      if (cachedSettings && JSON.stringify(state.settings) === JSON.stringify({ ...defaultSettings, ...cachedSettings })) {
-        return;
-      }
-    }
+    if (!isReady) return;
+    console.log('[AppContext] Saving settings:', JSON.stringify(state.settings));
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-  }, [ready, state.settings]);
+  }, [state.settings, isReady]);
 
-  // Save accounts when changed (skip initial load)
-  const accountsFirstSaveSkipped = useRef(false);
+  // Save accounts whenever they change (after mount)
   useEffect(() => {
-    if (!ready) return;
-    if (!accountsFirstSaveSkipped.current) {
-      accountsFirstSaveSkipped.current = true;
-      return;
-    }
+    if (!isReady) return;
     if (state.accounts.length > 0) {
       saveAccounts(state.accounts);
     } else {
       import('../features/security/encryption').then(({ clearAccounts }) => clearAccounts());
     }
-  }, [ready, state.accounts]);
+  }, [state.accounts, isReady]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
