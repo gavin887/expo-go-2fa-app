@@ -1,5 +1,5 @@
 // [AI] Home screen with account list, action sheet, and copy-to-clipboard
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,18 +7,22 @@ import { useTheme } from '../context/ThemeContext';
 import { useAccounts } from '../features/accounts/hooks/useAccounts';
 import { AccountCard } from '../features/accounts/components/AccountCard';
 import { EmptyState } from '../features/accounts/components/EmptyState';
-import { FAB } from '../shared/components';
+import { FAB, Toast } from '../shared/components';
 
 export function HomeScreen({ navigation }) {
   const { colors } = useTheme();
   const { accounts, addAccount, deleteAccount } = useAccounts();
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const toastTimer = useRef(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Accounts loaded via persistence in AppContext
-    }, [])
-  );
+  const showToast = useCallback((msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMessage(msg);
+    setToastVisible(true);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 2000);
+  }, []);
 
   const handleDelete = (id) => {
     Alert.alert('删除账号', '确定要删除此账号吗？', [
@@ -28,6 +32,7 @@ export function HomeScreen({ navigation }) {
         style: 'destructive',
         onPress: () => {
           deleteAccount(id);
+          showToast('已删除');
         },
       },
     ]);
@@ -58,6 +63,7 @@ export function HomeScreen({ navigation }) {
               account={acc}
               onEdit={() => navigation.navigate('EditAccount', { id: acc.id })}
               onDelete={() => handleDelete(acc.id)}
+              onCopy={showToast}
             />
           ))
         )}
@@ -107,6 +113,10 @@ export function HomeScreen({ navigation }) {
           </View>
         </Pressable>
       </Modal>
+
+      <View style={styles.toastContainer}>
+        <Toast message={toastMessage} visible={toastVisible} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -148,4 +158,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionLabel: { fontSize: 15, fontWeight: '600' },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
 });

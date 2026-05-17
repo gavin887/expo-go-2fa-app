@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
-const { height } = Dimensions.get('window');
+const { height, width } = Dimensions.get('window');
 
 export function Toast({ message, visible, duration = 2000 }) {
   const { colors } = useTheme();
@@ -47,7 +47,14 @@ export function Toast({ message, visible, duration = 2000 }) {
 
   return (
     <Animated.View
-      style={[styles.container, { transform: [{ translateY }], opacity }]}
+      style={[
+        styles.container,
+        {
+          top: height * 0.9,
+          transform: [{ translateY }],
+          opacity,
+        },
+      ]}
     >
       <Text
         style={[
@@ -64,7 +71,6 @@ export function Toast({ message, visible, duration = 2000 }) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: height * 0.1,
     alignSelf: 'center',
     zIndex: 20,
   },

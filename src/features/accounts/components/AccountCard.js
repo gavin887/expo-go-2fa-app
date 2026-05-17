@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { ClayCard } from '../../../shared/components';
 import { TimerRing } from '../../../shared/components/TimerRing';
-import { Toast } from '../../../shared/components';
 import { useTheme } from '../../../context/ThemeContext';
 import { useApp } from '../../../context/AppContext';
 import { totpGenerate, getTimeRemaining } from '../../otp/totp';
@@ -13,14 +12,12 @@ const ACCENT_COLORS = [
   'accentPink', 'accentBlue', 'accentPurple', 'accentGreen', 'accentOrange',
 ];
 
-export function AccountCard({ account, onEdit, onDelete }) {
+export function AccountCard({ account, onEdit, onDelete, onCopy }) {
   const { colors } = useTheme();
   const { state, dispatch } = useApp();
   const [code, setCode] = useState('');
   const [seconds, setSeconds] = useState(30);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
 
   const timeOffset = state.settings.timeSyncEnabled ? state.settings.timeOffset : 0;
 
@@ -48,8 +45,7 @@ export function AccountCard({ account, onEdit, onDelete }) {
 
   const handleCopyCode = async () => {
     await Clipboard.setStringAsync(code);
-    setToastMessage('已复制到剪贴板 ✓');
-    setToastVisible(true);
+    onCopy && onCopy('已复制到剪贴板 ✓');
   };
 
   return (
@@ -103,8 +99,6 @@ export function AccountCard({ account, onEdit, onDelete }) {
           </View>
         </Pressable>
       </Modal>
-
-      <Toast message={toastMessage} visible={toastVisible} />
     </>
   );
 }
