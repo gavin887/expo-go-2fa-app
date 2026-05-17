@@ -32,7 +32,7 @@ function describeArc(cx, cy, r, progress) {
 
   const largeArc = angle > 180 ? 1 : 0;
 
-  return `M ${cx},${cy} L ${x1},${y1} A ${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`;
+  return `M ${cx},${cy} L ${x1},${y1} A ${r},${r} 0 ${largeArc},0 ${x2},${y2} Z`;
 }
 
 export function TimerRing({ seconds, totalSeconds = 30 }) {
