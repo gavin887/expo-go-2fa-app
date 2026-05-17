@@ -1,25 +1,34 @@
 // [AI] QR code scanning screen for otpauth URLs with error handling
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
-import { Camera } from 'expo-camera';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { parseOtpauthUrl } from '../shared/utils/otpauth';
 import { useTheme } from '../context/ThemeContext';
 
 export function ScanScreen({ navigation }) {
   const { colors } = useTheme();
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [lastScanned, setLastScanned] = useState(null);
   const [showError, setShowError] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+  if (!permission) {
+    return <View style={styles.center} />;
+  }
 
-  const handleBarCodeScanned = ({ data }) => {
-    // Prevent duplicate scans
+  if (!permission.granted) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.bg }]}>
+        <Text style={{ color: colors.textPrimary, fontSize: 16, marginBottom: 16 }}>
+          需要相机权限
+        </Text>
+        <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+          请在系统设置中授予相机权限
+        </Text>
+      </View>
+    );
+  }
+
+  const handleBarcodeScanned = ({ data }) => {
     if (data === lastScanned) return;
     setLastScanned(data);
 
@@ -35,26 +44,12 @@ export function ScanScreen({ navigation }) {
     }
   };
 
-  if (hasPermission === null) return <View style={styles.center} />;
-  if (hasPermission === false) {
-    return (
-      <View style={styles.center}>
-        <Text style={{ color: colors.textPrimary, fontSize: 16, marginBottom: 16 }}>
-          需要相机权限
-        </Text>
-        <Text style={{ color: colors.textSecondary }}>
-          请在系统设置中授予相机权限
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <Camera
+      <CameraView
         style={styles.camera}
-        onBarCodeScanned={handleBarCodeScanned}
-        barCodeScannerSettings={{ barCodeTypes: ['qr'] }}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={handleBarcodeScanned}
       />
       {showError && (
         <View style={styles.errorOverlay}>
@@ -71,7 +66,7 @@ export function ScanScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   camera: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errorOverlay: {
     position: 'absolute',
     bottom: 100,
