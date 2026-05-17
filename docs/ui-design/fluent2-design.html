@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluent 2 - 身份验证器设计稿</title>
+<style>
+  /* ============================================
+     CSS Variables & Theme System
+     ============================================ */
+  :root {
+    --fluent-blue: #0078D4;
+    --fluent-blue-hover: #106EBE;
+    --fluent-blue-active: #005A9E;
+    --fluent-blue-light: rgba(0, 120, 212, 0.08);
+    --fluent-blue-subtle: rgba(0, 120, 212, 0.04);
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.16);
+
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Light Theme */
+  [data-theme="light"] {
+    --bg-primary: #F3F3F3;
+    --bg-gradient-1: #E8F0FE;
+    --bg-gradient-2: #F0F4F8;
+    --bg-gradient-3: #FAFBFC;
+
+    --card-bg: rgba(255, 255, 255, 0.72);
+    --card-bg-hover: rgba(255, 255, 255, 0.85);
+    --card-border: rgba(255, 255, 255, 0.6);
+    --card-border-subtle: rgba(0, 0, 0, 0.0578);
+
+    --text-primary: #1A1A1A;
+    --text-secondary: #616161;
+    --text-tertiary: #9E9E9E;
+    --text-on-accent: #FFFFFF;
+
+    --surface-accent: rgba(0, 120, 212, 0.06);
+    --divider: rgba(0, 0, 0, 0.08);
+
+    --code-bg: rgba(0, 0, 0, 0.04);
+    --input-bg: rgba(255, 255, 255, 0.9);
+    --input-border: rgba(0, 0, 0, 0.12);
+
+    --progress-default: #0078D4;
+    --progress-warning: #FF8C00;
+    --progress-danger: #D13438;
+  }
+
+  /* Dark Theme */
+  [data-theme="dark"] {
+    --bg-primary: #202020;
+    --bg-gradient-1: #1A1F2B;
+    --bg-gradient-2: #1E1E1E;
+    --bg-gradient-3: #252525;
+
+    --card-bg: rgba(44, 44, 44, 0.72);
+    --card-bg-hover: rgba(52, 52, 52, 0.85);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-border-subtle: rgba(255, 255, 255, 0.06);
+
+    --text-primary: #FFFFFF;
+    --text-secondary: #B0B0B0;
+    --text-tertiary: #7A7A7A;
+    --text-on-accent: #FFFFFF;
+
+    --surface-accent: rgba(0, 120, 212, 0.12);
+    --divider: rgba(255, 255, 255, 0.08);
+
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --input-bg: rgba(32, 32, 32, 0.9);
+    --input-border: rgba(255, 255, 255, 0.12);
+
+    --progress-default: #60CDFF;
+    --progress-warning: #FCE100;
+    --progress-danger: #FF99A4;
+  }
+
+  /* ============================================
+     Base Reset & Layout
+     ============================================ */
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ============================================
+     Presentation Layout (Desktop Wrapper)
+     ============================================ */
+  .presentation-wrapper {
+    display: flex;
+    gap: 48px;
+    padding: 48px;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .presentation-title {
+    width: 100%;
+    text-align: center;
+    color: #FFFFFF;
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .presentation-subtitle {
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,0.8);
+    font-size: 16px;
+    margin-bottom: 32px;
+  }
+
+  .device-frame {
+    width: 375px;
+    height: 812px;
+    background: var(--bg-primary);
+    border-radius: 40px;
+    padding: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .device-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 28px;
+    background: #1A1A1A;
+    border-radius: 0 0 18px 18px;
+    z-index: 100;
+  }
+
+  .device-screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .device-label {
+    text-align: center;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 16px;
+    opacity: 0.9;
+  }
+
+  /* ============================================
+     Mica Background
+     ============================================ */
+  .mica-bg {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      160deg,
+      var(--bg-gradient-1) 0%,
+      var(--bg-gradient-2) 40%,
+      var(--bg-gradient-3) 100%
+    );
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Subtle noise texture overlay for Mica effect */
+  .mica-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  /* ============================================
+     Acrylic Card
+     ============================================ */
+  .fluent-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    transition: all var(--transition-normal);
+  }
+
+  .fluent-card:hover {
+    background: var(--card-bg-hover);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+
+  /* ============================================
+     Status Bar
+     ============================================ */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .status-time {
+    font-weight: 700;
+  }
+
+  .status-icons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .status-icons svg {
+    width: 16px;
+    height: 16px;
+    fill: var(--text-primary);
+  }
+
+  /* ============================================
+     Navigation Bar
+     ============================================ */
+  .nav-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px 12px;
+    position: sticky;
+    top: 32px;
+    z-index: 9;
+  }
+
+  .nav-title {
+    font-size: 24px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .nav-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .nav-btn:hover {
+    background: var(--surface-accent);
+  }
+
+  .nav-btn:active {
+    transform: scale(0.95);
+  }
+
+  .nav-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-primary);
+  }
+
+  /* ============================================
+     Account Card
+     ============================================ */
+  .account-list {
+    padding: 0 16px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .account-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .account-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .account-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .account-issuer {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .account-name {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .account-menu-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+  }
+
+  .account-menu-btn:hover {
+    opacity: 1;
+    background: var(--surface-accent);
+  }
+
+  .account-menu-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: var(--text-primary);
+  }
+
+  .account-code-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .account-code {
+    font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    user-select: none;
+  }
+
+  .account-code:hover {
+    background: var(--code-bg);
+  }
+
+  .account-code:active {
+    transform: scale(0.98);
+  }
+
+  .account-code.copied {
+    color: var(--fluent-blue);
+  }
+
+  .progress-ring {
+    width: 32px;
+    height: 32px;
+    position: relative;
+  }
+
+  .progress-ring svg {
+    transform: rotate(-90deg);
+    width: 32px;
+    height: 32px;
+  }
+
+  .progress-ring circle {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+
+  .progress-bg {
+    stroke: var(--divider);
+  }
+
+  .progress-fill {
+    stroke: var(--progress-default);
+    transition: stroke-dashoffset 1s linear, stroke var(--transition-normal);
+  }
+
+  .progress-fill.warning {
+    stroke: var(--progress-warning);
+  }
+
+  .progress-fill.danger {
+    stroke: var(--progress-danger);
+  }
+
+  /* ============================================
+     FAB (Floating Action Button)
+     ============================================ */
+  .fab {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--fluent-blue);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    z-index: 50;
+  }
+
+  .fab:hover {
+    background: var(--fluent-blue-hover);
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 120, 212, 0.5);
+  }
+
+  .fab:active {
+    transform: scale(0.95);
+    background: var(--fluent-blue-active);
+  }
+
+  .fab svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--text-on-accent);
+  }
+
+  /* ============================================
+     Bottom Sheet / Action Menu
+     ============================================ */
+  .bottom-sheet-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-normal);
+  }
+
+  .bottom-sheet-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .bottom-sheet {
+    width: 100%;
+    background: var(--card-bg);
+    backdrop-filter: blur(40px) saturate(1.4);
+    -webkit-backdrop-filter: blur(40px) saturate(1.4);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding: 8px 0 32px;
+    transform: translateY(100%);
+    transition: transform var(--transition-slow);
+    border-top: 1px solid var(--card-border);
+  }
+
+  .bottom-sheet-overlay.active .bottom-sheet {
+    transform: translateY(0);
+  }
+
+  .bottom-sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--text-tertiary);
+    border-radius: 2px;
+    margin: 8px auto 16px;
+    opacity: 0.5;
+  }
+
+  .bottom-sheet-title {
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0 20px 16px;
+    color: var(--text-primary);
+  }
+
+  .bottom-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .bottom-sheet-item:hover {
+    background: var(--surface-accent);
+  }
+
+  .bottom-sheet-item:active {
+    background: var(--fluent-blue-light);
+  }
+
+  .bottom-sheet-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--fluent-blue-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .bottom-sheet-icon svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--fluent-blue);
+  }
+
+  .bottom-sheet-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bottom-sheet-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .bottom-sheet-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* ============================================
+     Settings Page
+     ============================================ */
+  .settings-content {
+    padding: 0 16px 100px;
+  }
+
+  .settings-group {
+    margin-bottom: 24px;
+  }
+
+  .settings-group-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 16px 8px;
+  }
+
+  .settings-card {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .settings-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--divider);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .settings-item:last-child {
+    border-bottom: none;
+  }
+
+  .settings-item:hover {
+    background: var(--surface-accent);
+  }
+
+  .settings-item:active {
+    background: var(--fluent-blue-light);
+  }
+
+  .settings-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .settings-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .settings-icon.blue { background: rgba(0, 120, 212, 0.12); }
+  .settings-icon.blue svg { fill: var(--fluent-blue); }
+  .settings-icon.green { background: rgba(16, 124, 16, 0.12); }
+  .settings-icon.green svg { fill: #107C10; }
+  .settings-icon.orange { background: rgba(255, 140, 0, 0.12); }
+  .settings-icon.orange svg { fill: #FF8C00; }
+  .settings-icon.purple { background: rgba(135, 100, 184, 0.12); }
+  .settings-icon.purple svg { fill: #8764B8; }
+  .settings-icon.red { background: rgba(209, 52, 56, 0.12); }
+  .settings-icon.red svg { fill: #D13438; }
+
+  .settings-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .settings-label {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text-primary);
+  }
+
+  .settings-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .settings-value {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .settings-chevron {
+    width: 16px;
+    height: 16px;
+    fill: var(--text-tertiary);
+    opacity: 0.5;
+  }
+
+  /* Toggle Switch */
+  .toggle-switch {
+    width: 44px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--text-tertiary);
+    position: relative;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .toggle-switch.active {
+    background: var(--fluent-blue);
+  }
+
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform var(--transition-fast);
+  }
+
+  .toggle-switch.active::after {
+    transform: translateX(22px);
+  }
+
+  /* ============================================
+     Toast Notification
+     ============================================ */
+  .toast {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: var(--shadow-elevated);
+    opacity: 0;
+    pointer-events: none;
+    transition: all var(--transition-normal);
+    z-index: 70;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ============================================
+     Code Format Badge
+     ============================================ */
+  .code-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--code-bg);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-family: "Cascadia Code", monospace;
+    color: var(--text-secondary);
+  }
+
+  /* ============================================
+     Scrollbar Styling
+     ============================================ */
+  .mica-bg::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .mica-bg::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .mica-bg::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+
+  /* ============================================
+     Empty State
+     ============================================ */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 32px;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--fluent-blue-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .empty-icon svg {
+    width: 40px;
+    height: 40px;
+    fill: var(--fluent-blue);
+  }
+
+  .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .empty-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ============================================
+     Home Indicator (iOS style for realism)
+     ============================================ */
+  .home-indicator {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 134px;
+    height: 5px;
+    background: var(--text-primary);
+    border-radius: 3px;
+    opacity: 0.2;
+    z-index: 80;
+  }
+
+  /* ============================================
+     Dark theme specific adjustments
+     ============================================ */
+  [data-theme="dark"] .account-issuer {
+    color: var(--text-tertiary);
+  }
+
+  [data-theme="dark"] .bottom-sheet-icon {
+    background: rgba(96, 205, 255, 0.12);
+  }
+
+  [data-theme="dark"] .bottom-sheet-icon svg {
+    fill: #60CDFF;
+  }
+
+  [data-theme="dark"] .settings-icon.blue { background: rgba(96, 205, 255, 0.12); }
+  [data-theme="dark"] .settings-icon.blue svg { fill: #60CDFF; }
+  [data-theme="dark"] .settings-icon.green { background: rgba(109, 190, 60, 0.12); }
+  [data-theme="dark"] .settings-icon.green svg { fill: #6DBE3C; }
+  [data-theme="dark"] .settings-icon.orange { background: rgba(255, 185, 0, 0.12); }
+  [data-theme="dark"] .settings-icon.orange svg { fill: #FFB900; }
+  [data-theme="dark"] .settings-icon.purple { background: rgba(169, 142, 220, 0.12); }
+  [data-theme="dark"] .settings-icon.purple svg { fill: #A98EDC; }
+  [data-theme="dark"] .settings-icon.red { background: rgba(255, 153, 164, 0.12); }
+  [data-theme="dark"] .settings-icon.red svg { fill: #FF99A4; }
+</style>
+</head>
+<body>
+
+<div class="presentation-wrapper">
+  <div class="presentation-title">Fluent 2 身份验证器</div>
+  <div class="presentation-subtitle">Windows 11 设计语言 · 亚克力材质 · 双主题展示</div>
+
+  <!-- ==========================================
+       LIGHT THEME - Account List Page
+       ========================================== -->
+  <div>
+    <div class="device-frame">
+      <div class="device-screen" data-theme="light">
+        <div class="mica-bg">
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span class="status-time">9:41</span>
+            <div class="status-icons">
+              <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="nav-bar">
+            <div class="nav-title">身份验证器</div>
+            <button class="nav-btn">
+              <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </button>
+          </div>
+
+          <!-- Account List -->
+          <div class="account-list">
+            <!-- Card 1: GitHub -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">GitHub</span>
+                  <span class="account-name">gavin@github.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">482 916</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      stroke-dashoffset="24.35"
+                      style="stroke-dashoffset: 32.47;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Google -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">Google</span>
+                  <span class="account-name">gavin@gmail.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">731 058</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      stroke-dashoffset="24.35"
+                      style="stroke-dashoffset: 64.93;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: AWS (Warning state) -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">AWS</span>
+                  <span class="account-name">root@soho-cloud.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">205 847</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill danger" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      stroke-dashoffset="24.35"
+                      style="stroke-dashoffset: 87.66;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4: Cloudflare -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">Cloudflare</span>
+                  <span class="account-name">admin@soho.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">619 324</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      stroke-dashoffset="24.35"
+                      style="stroke-dashoffset: 48.7;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAB -->
+          <button class="fab" onclick="toggleBottomSheet()">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+
+          <!-- Bottom Sheet -->
+          <div class="bottom-sheet-overlay" id="bottomSheet" onclick="closeBottomSheet(event)">
+            <div class="bottom-sheet" onclick="event.stopPropagation()">
+              <div class="bottom-sheet-handle"></div>
+              <div class="bottom-sheet-title">添加账号</div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 11h-6V5h6v6zm-6 2h1.5v1.5H13V13zm2 0H17v1.5h-1.5V13zm-2 2h1.5v1.5H13v-1.5zm2 0H17v1.5h-1.5v-1.5zM20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">扫描二维码</span>
+                  <span class="bottom-sheet-desc">使用相机扫描 OTP 二维码</span>
+                </div>
+              </div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">手动输入</span>
+                  <span class="bottom-sheet-desc">输入发行方、账号和密钥</span>
+                </div>
+              </div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">从剪贴板导入</span>
+                  <span class="bottom-sheet-desc">自动识别剪贴板中的密钥</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toast -->
+          <div class="toast" id="toast">已复制到剪贴板</div>
+
+          <!-- Home Indicator -->
+          <div class="home-indicator"></div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">浅色主题 · 账号列表</div>
+  </div>
+
+  <!-- ==========================================
+       DARK THEME - Settings Page
+       ========================================== -->
+  <div>
+    <div class="device-frame">
+      <div class="device-screen" data-theme="dark">
+        <div class="mica-bg">
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span class="status-time">9:41</span>
+            <div class="status-icons">
+              <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="nav-bar">
+            <button class="nav-btn">
+              <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <div class="nav-title" style="margin-left: 8px;">设置</div>
+          </div>
+
+          <!-- Settings Content -->
+          <div class="settings-content">
+            <!-- Group A: Appearance -->
+            <div class="settings-group">
+              <div class="settings-group-label">外观</div>
+              <div class="fluent-card settings-card">
+                <div class="settings-item">
+                  <div class="settings-icon blue">
+                    <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1-.01-.83.67-1.5 1.49-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">主题</span>
+                  </div>
+                  <div class="settings-value">
+                    深色
+                    <svg class="settings-chevron" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group B: Security -->
+            <div class="settings-group">
+              <div class="settings-group-label">安全</div>
+              <div class="fluent-card settings-card">
+                <div class="settings-item">
+                  <div class="settings-icon green">
+                    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">应用锁</span>
+                    <span class="settings-desc">PIN 码 / 生物识别</span>
+                  </div>
+                  <div class="toggle-switch" onclick="this.classList.toggle('active')"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group C: Data Management -->
+            <div class="settings-group">
+              <div class="settings-group-label">数据管理</div>
+              <div class="fluent-card settings-card">
+                <div class="settings-item">
+                  <div class="settings-icon orange">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">导出账号</span>
+                    <span class="settings-desc">Secret 列表或 otpauth 链接</span>
+                  </div>
+                  <svg class="settings-chevron" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-icon orange">
+                    <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">备份账号</span>
+                    <span class="settings-desc">加密 JSON 完整备份</span>
+                  </div>
+                  <svg class="settings-chevron" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-icon orange">
+                    <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">导入账号</span>
+                    <span class="settings-desc">从备份文件或导出文件导入</span>
+                  </div>
+                  <svg class="settings-chevron" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group D: Advanced -->
+            <div class="settings-group">
+              <div class="settings-group-label">高级</div>
+              <div class="fluent-card settings-card">
+                <div class="settings-item">
+                  <div class="settings-icon purple">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">时间校准</span>
+                    <span class="settings-desc">与服务器时间同步</span>
+                  </div>
+                  <div class="toggle-switch active" onclick="this.classList.toggle('active')"></div>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-text" style="padding-left: 46px;">
+                    <span class="settings-label">当前差值</span>
+                    <span class="settings-desc"><span class="code-badge">+0.32 秒</span></span>
+                  </div>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-text" style="padding-left: 46px;">
+                    <span class="settings-label">上次校准</span>
+                    <span class="settings-desc">2024-01-15 09:30:22</span>
+                  </div>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-text" style="padding-left: 46px;">
+                    <span class="settings-label" style="color: var(--fluent-blue);">立即校准</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group E: About -->
+            <div class="settings-group">
+              <div class="settings-group-label">关于</div>
+              <div class="fluent-card settings-card">
+                <div class="settings-item">
+                  <div class="settings-icon blue">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                  </div>
+                  <div class="settings-text">
+                    <span class="settings-label">版本</span>
+                  </div>
+                  <div class="settings-value">1.0.0</div>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-text" style="padding-left: 46px;">
+                    <span class="settings-label" style="color: var(--fluent-blue);">开源协议</span>
+                  </div>
+                </div>
+                <div class="settings-item">
+                  <div class="settings-text" style="padding-left: 46px;">
+                    <span class="settings-label" style="color: var(--fluent-blue);">隐私政策</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Home Indicator -->
+          <div class="home-indicator"></div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">深色主题 · 设置页</div>
+  </div>
+
+  <!-- ==========================================
+       LIGHT THEME - Code Display Detail
+       ========================================== -->
+  <div>
+    <div class="device-frame">
+      <div class="device-screen" data-theme="light">
+        <div class="mica-bg">
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span class="status-time">9:41</span>
+            <div class="status-icons">
+              <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="nav-bar">
+            <button class="nav-btn">
+              <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <div class="nav-title" style="margin-left: 8px; font-size: 18px;">验证码详情</div>
+          </div>
+
+          <!-- Large Code Display -->
+          <div style="padding: 24px 16px;">
+            <!-- Account Info -->
+            <div style="text-align: center; margin-bottom: 32px;">
+              <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--fluent-blue-light); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                <svg viewBox="0 0 24 24" style="width: 32px; height: 32px; fill: var(--fluent-blue);">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <div style="font-size: 18px; font-weight: 600; color: var(--text-primary);">GitHub</div>
+              <div style="font-size: 14px; color: var(--text-secondary); margin-top: 4px;">gavin@github.com</div>
+            </div>
+
+            <!-- Large OTP Code -->
+            <div class="fluent-card" style="padding: 32px 24px; text-align: center; margin-bottom: 24px;">
+              <div style="font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 42px; font-weight: 700; letter-spacing: 8px; color: var(--text-primary); margin-bottom: 16px;">
+                482 916
+              </div>
+
+              <!-- Progress Bar -->
+              <div style="position: relative; height: 4px; background: var(--divider); border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
+                <div style="position: absolute; left: 0; top: 0; height: 100%; width: 67%; background: var(--fluent-blue); border-radius: 2px; transition: width 1s linear;"></div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-tertiary);">
+                <span>剩余 20 秒</span>
+                <span>30 秒周期</span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+              <button class="fluent-card" style="flex: 1; padding: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text-primary); background: var(--card-bg); backdrop-filter: blur(20px) saturate(1.2);">
+                <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: var(--fluent-blue);">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+                复制验证码
+              </button>
+              <button class="fluent-card" style="flex: 1; padding: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text-primary); background: var(--card-bg); backdrop-filter: blur(20px) saturate(1.2);">
+                <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: var(--text-secondary);">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+                编辑账号
+              </button>
+            </div>
+
+            <!-- Secret Info (Collapsible) -->
+            <div class="fluent-card" style="padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px;">密钥信息</span>
+                <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: var(--text-tertiary);">
+                  <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: 13px; color: var(--text-secondary);">类型</span>
+                  <span class="code-badge">TOTP</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: 13px; color: var(--text-secondary);">位数</span>
+                  <span style="font-size: 13px; color: var(--text-primary);">6 位</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: 13px; color: var(--text-secondary);">算法</span>
+                  <span style="font-size: 13px; color: var(--text-primary);">SHA-1</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: 13px; color: var(--text-secondary);">周期</span>
+                  <span style="font-size: 13px; color: var(--text-primary);">30 秒</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toast -->
+          <div class="toast" id="toastDetail">已复制到剪贴板</div>
+
+          <!-- Home Indicator -->
+          <div class="home-indicator"></div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">浅色主题 · 验证码详情</div>
+  </div>
+
+  <!-- ==========================================
+       DARK THEME - Account List
+       ========================================== -->
+  <div>
+    <div class="device-frame">
+      <div class="device-screen" data-theme="dark">
+        <div class="mica-bg">
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span class="status-time">9:41</span>
+            <div class="status-icons">
+              <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="nav-bar">
+            <div class="nav-title">身份验证器</div>
+            <button class="nav-btn">
+              <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </button>
+          </div>
+
+          <!-- Account List (Dark) -->
+          <div class="account-list">
+            <!-- Card 1 -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">GitHub</span>
+                  <span class="account-name">gavin@github.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">482 916</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      style="stroke-dashoffset: 32.47;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">Google</span>
+                  <span class="account-name">gavin@gmail.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">731 058</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill warning" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      style="stroke-dashoffset: 81.17;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="fluent-card account-card">
+              <div class="account-header">
+                <div class="account-info">
+                  <span class="account-issuer">AWS</span>
+                  <span class="account-name">root@soho-cloud.com</span>
+                </div>
+                <button class="account-menu-btn">
+                  <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+              </div>
+              <div class="account-code-row">
+                <span class="account-code" onclick="copyCode(this)">205 847</span>
+                <div class="progress-ring">
+                  <svg viewBox="0 0 36 36">
+                    <circle class="progress-bg" cx="18" cy="18" r="15.5"></circle>
+                    <circle class="progress-fill" cx="18" cy="18" r="15.5"
+                      stroke-dasharray="97.4"
+                      style="stroke-dashoffset: 48.7;"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAB -->
+          <button class="fab" onclick="toggleBottomSheet()">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+
+          <!-- Bottom Sheet (Dark) -->
+          <div class="bottom-sheet-overlay" id="bottomSheetDark" onclick="closeBottomSheet(event)">
+            <div class="bottom-sheet" onclick="event.stopPropagation()">
+              <div class="bottom-sheet-handle"></div>
+              <div class="bottom-sheet-title">添加账号</div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 11h-6V5h6v6zm-6 2h1.5v1.5H13V13zm2 0H17v1.5h-1.5V13zm-2 2h1.5v1.5H13v-1.5zm2 0H17v1.5h-1.5v-1.5zM20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">扫描二维码</span>
+                  <span class="bottom-sheet-desc">使用相机扫描 OTP 二维码</span>
+                </div>
+              </div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">手动输入</span>
+                  <span class="bottom-sheet-desc">输入发行方、账号和密钥</span>
+                </div>
+              </div>
+
+              <div class="bottom-sheet-item">
+                <div class="bottom-sheet-icon">
+                  <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+                </div>
+                <div class="bottom-sheet-text">
+                  <span class="bottom-sheet-label">从剪贴板导入</span>
+                  <span class="bottom-sheet-desc">自动识别剪贴板中的密钥</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toast -->
+          <div class="toast" id="toastDark">已复制到剪贴板</div>
+
+          <!-- Home Indicator -->
+          <div class="home-indicator"></div>
+        </div>
+      </div>
+    </div>
+    <div class="device-label">深色主题 · 账号列表</div>
+  </div>
+
+</div>
+
+<script>
+  // Toggle bottom sheet
+  function toggleBottomSheet() {
+    const sheet = document.getElementById('bottomSheet') || document.getElementById('bottomSheetDark');
+    if (sheet) {
+      sheet.classList.toggle('active');
+    }
+  }
+
+  function closeBottomSheet(event) {
+    if (event.target.classList.contains('bottom-sheet-overlay')) {
+      event.target.classList.remove('active');
+    }
+  }
+
+  // Copy code simulation
+  function copyCode(element) {
+    const card = element.closest('.account-card') || element.closest('.device-screen');
+    const toast = card.querySelector('.toast') || document.querySelector('.toast');
+
+    element.classList.add('copied');
+    if (toast) {
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+        element.classList.remove('copied');
+      }, 1500);
+    }
+  }
+
+  // Add subtle animation to progress rings on load
+  document.addEventListener('DOMContentLoaded', () => {
+    const rings = document.querySelectorAll('.progress-fill');
+    rings.forEach((ring, i) => {
+      ring.style.transition = `stroke-dashoffset 1s linear ${i * 0.1}s`;
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberAuth // 赛博身份验证器</title>
+<style>
+/* ========== 基础重置 ========== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-dark: #0a0a0f;
+  --bg-card: #0d0d14;
+  --bg-input: #111119;
+  --neon-green: #00ff41;
+  --neon-cyan: #00ffff;
+  --neon-purple: #b300ff;
+  --neon-pink: #ff006e;
+  --neon-yellow: #ffff00;
+  --text-primary: #e0e0e8;
+  --text-dim: #666680;
+  --text-bright: #ffffff;
+  --border-glow: #1a1a2e;
+  --danger: #ff3333;
+  --success: #00ff41;
+  --warning: #ffaa00;
+}
+
+@font-face {
+  font-family: 'Terminal';
+  src: local('JetBrains Mono'), local('Fira Code'), local('Consolas'), local('Monaco'), local('monospace');
+}
+
+body {
+  font-family: 'Terminal', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ========== 扫描线效果 ========== */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 65, 0.03) 0px,
+    rgba(0, 255, 65, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* ========== Matrix 数字雨背景 ========== */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 999;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 255, 65, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(179, 0, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 255, 255, 0.03) 0%, transparent 50%);
+  animation: bgPulse 8s ease-in-out infinite;
+}
+
+@keyframes bgPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ========== 主容器 ========== */
+.container {
+  max-width: 375px;
+  margin: 0 auto;
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ========== 终端窗口框架 ========== */
+.terminal-window {
+  background: var(--bg-card);
+  border: 1px solid var(--neon-green);
+  border-radius: 4px;
+  margin-bottom: 24px;
+  box-shadow:
+    0 0 10px rgba(0, 255, 65, 0.2),
+    0 0 20px rgba(0, 255, 65, 0.1),
+    inset 0 0 30px rgba(0, 255, 65, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: linear-gradient(180deg, #1a1a2e 0%, var(--bg-card) 100%);
+  border-bottom: 1px solid var(--neon-green);
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  height: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid;
+}
+
+.terminal-dot.red {
+  border-color: var(--neon-pink);
+  box-shadow: 0 0 4px var(--neon-pink);
+}
+
+.terminal-dot.yellow {
+  border-color: var(--neon-yellow);
+  box-shadow: 0 0 4px var(--neon-yellow);
+}
+
+.terminal-dot.green {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 4px var(--neon-green);
+}
+
+.terminal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--neon-green);
+  text-shadow: 0 0 8px var(--neon-green);
+  letter-spacing: 1px;
+}
+
+.terminal-body {
+  padding: 16px;
+}
+
+/* ========== 标题栏 ========== */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 20px;
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 10px var(--neon-cyan),
+    0 0 20px var(--neon-cyan),
+    0 0 40px rgba(0, 255, 255, 0.5);
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+
+.header .subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+.header .status-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glow);
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.led.green {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success), 0 0 12px var(--success);
+}
+
+.led.red {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger), 0 0 12px var(--danger);
+  animation-delay: 0.5s;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* ========== 账号卡片列表 ========== */
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  padding: 16px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.account-card:hover {
+  border-color: var(--neon-cyan);
+  box-shadow:
+    0 0 8px rgba(0, 255, 255, 0.3),
+    inset 0 0 15px rgba(0, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.account-card:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 4px rgba(0, 255, 255, 0.2),
+    inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+.account-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.account-info {
+  flex: 1;
+}
+
+.account-name {
+  font-size: 13px;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.account-issuer {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.account-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: rgba(0, 255, 65, 0.1);
+  border: 1px solid var(--neon-green);
+  color: var(--neon-green);
+  border-radius: 2px;
+  letter-spacing: 1px;
+}
+
+.otp-code {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--neon-green);
+  text-shadow:
+    0 0 10px var(--neon-green),
+    0 0 20px rgba(0, 255, 65, 0.5);
+  letter-spacing: 6px;
+  text-align: center;
+  padding: 8px 0;
+  font-family: 'Terminal', monospace;
+}
+
+.otp-code .separator {
+  color: var(--text-dim);
+  margin: 0 4px;
+}
+
+.otp-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 10px;
+}
+
+.timer-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border-glow);
+  border-radius: 2px;
+  margin-right: 12px;
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  width: 65%;
+  background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+  box-shadow: 0 0 8px var(--neon-cyan);
+  animation: timerPulse 30s linear infinite;
+}
+
+@keyframes timerPulse {
+  0% { width: 100%; }
+  100% { width: 0%; }
+}
+
+.timer-text {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 6px var(--neon-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 添加账号按钮 ========== */
+.add-button {
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  border: 2px dashed var(--neon-purple);
+  border-radius: 4px;
+  color: var(--neon-purple);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 8px var(--neon-purple);
+  margin-top: 16px;
+}
+
+.add-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(179, 0, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.add-button:hover::before {
+  left: 100%;
+}
+
+.add-button:hover {
+  border-color: var(--neon-pink);
+  color: var(--neon-pink);
+  box-shadow:
+    0 0 15px rgba(255, 0, 110, 0.3),
+    inset 0 0 20px rgba(255, 0, 110, 0.1);
+  text-shadow: 0 0 12px var(--neon-pink);
+}
+
+.add-button:active {
+  transform: scale(0.98);
+  box-shadow:
+    0 0 5px rgba(255, 0, 110, 0.2),
+    inset 0 0 30px rgba(255, 0, 110, 0.15);
+}
+
+.add-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* ========== 设置页 ========== */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-item:first-child {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.settings-item:last-child {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.settings-item:hover {
+  background: rgba(0, 255, 65, 0.05);
+  border-color: var(--neon-green);
+}
+
+.settings-item:active {
+  background: rgba(0, 255, 65, 0.1);
+}
+
+.settings-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px var(--neon-cyan);
+}
+
+.settings-label {
+  font-size: 12px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.settings-value {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.settings-arrow {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* 开关组件 */
+.toggle {
+  width: 44px;
+  height: 22px;
+  background: var(--border-glow);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid var(--text-dim);
+}
+
+.toggle.active {
+  background: rgba(0, 255, 65, 0.2);
+  border-color: var(--neon-green);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.toggle.active::after {
+  left: 24px;
+  background: var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
+}
+
+/* ========== 分隔线 ========== */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+}
+
+/* ========== 底部导航 ========== */
+.bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-glow);
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 375px;
+  z-index: 100;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px var(--neon-cyan);
+}
+
+.nav-icon {
+  font-size: 20px;
+}
+
+/* ========== 故障动效 ========== */
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.8;
+}
+
+.glitch::before {
+  color: var(--neon-pink);
+  animation: glitch1 3s infinite;
+  clip-path: inset(0 0 80% 0);
+}
+
+.glitch::after {
+  color: var(--neon-cyan);
+  animation: glitch2 3s infinite;
+  clip-path: inset(80% 0 0 0);
+}
+
+@keyframes glitch1 {
+  0%, 90%, 100% { transform: translate(0); }
+  92% { transform: translate(-3px, 1px); }
+  94% { transform: translate(3px, -1px); }
+  96% { transform: translate(-2px, 2px); }
+}
+
+@keyframes glitch2 {
+  0%, 90%, 100% { transform: translate(0); }
+  91% { transform: translate(3px, 1px); }
+  93% { transform: translate(-3px, -1px); }
+  95% { transform: translate(2px, 2px); }
+}
+
+/* ========== 终端游标闪烁 ========== */
+.cursor-blink::after {
+  content: '_';
+  animation: blink 1s step-end infinite;
+  color: var(--neon-green);
+  text-shadow: 0 0 8px var(--neon-green);
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ========== 页面切换指示 ========== */
+.page-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--neon-purple);
+  letter-spacing: 3px;
+  margin: 32px 0 16px;
+  padding: 8px;
+  border: 1px dashed var(--neon-purple);
+  border-radius: 3px;
+  background: rgba(179, 0, 255, 0.05);
+  text-shadow: 0 0 8px var(--neon-purple);
+}
+
+/* ========== 进度条动画 ========== */
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+  animation: scanMove 4s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes scanMove {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+/* ========== 二维码扫描框 ========== */
+.qr-frame {
+  width: 200px;
+  height: 200px;
+  margin: 16px auto;
+  position: relative;
+  border: 2px solid var(--neon-cyan);
+  box-shadow:
+    0 0 10px rgba(0, 255, 255, 0.3),
+    inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+.qr-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--neon-green);
+}
+
+.qr-corner.tl { top: -3px; left: -3px; border-right: none; border-bottom: none; }
+.qr-corner.tr { top: -3px; right: -3px; border-left: none; border-bottom: none; }
+.qr-corner.bl { bottom: -3px; left: -3px; border-right: none; border-top: none; }
+.qr-corner.br { bottom: -3px; right: -3px; border-left: none; border-top: none; }
+
+.qr-scan-line {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--neon-green);
+  box-shadow: 0 0 10px var(--neon-green);
+  animation: qrScan 2s ease-in-out infinite;
+}
+
+@keyframes qrScan {
+  0%, 100% { top: 10px; }
+  50% { top: calc(100% - 10px); }
+}
+
+/* ========== 输入框 ========== */
+.terminal-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glow);
+  border-radius: 3px;
+  color: var(--neon-green);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 1px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.terminal-input:focus {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+
+.terminal-input::placeholder {
+  color: var(--text-dim);
+}
+
+/* ========== 按钮通用 ========== */
+.btn-terminal {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--neon-green);
+  border-radius: 3px;
+  color: var(--neon-green);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.btn-terminal:hover {
+  background: rgba(0, 255, 65, 0.1);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+  text-shadow: 0 0 8px var(--neon-green);
+}
+
+.btn-terminal:active {
+  transform: scale(0.97);
+  box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+.btn-primary {
+  background: rgba(0, 255, 65, 0.15);
+  border-color: var(--neon-green);
+}
+
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: rgba(255, 51, 51, 0.1);
+  box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+}
+
+/* ========== 模态框 ========== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 15, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-content {
+  width: 340px;
+  background: var(--bg-card);
+  border: 1px solid var(--neon-cyan);
+  border-radius: 4px;
+  box-shadow:
+    0 0 30px rgba(0, 255, 255, 0.2),
+    0 0 60px rgba(0, 255, 255, 0.1);
+}
+
+.modal-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-glow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 14px;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px var(--neon-cyan);
+  letter-spacing: 2px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: var(--neon-pink);
+  text-shadow: 0 0 8px var(--neon-pink);
+}
+
+.modal-body {
+  padding: 16px;
+}
+
+.modal-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-glow);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ========== 工具提示 ========== */
+.tooltip {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1px solid var(--neon-green);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--neon-green);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* ========== 日志输出 ========== */
+.log-output {
+  background: var(--bg-input);
+  border: 1px solid var(--border-glow);
+  border-radius: 3px;
+  padding: 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 16px;
+}
+
+.log-line {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.log-line .timestamp {
+  color: var(--neon-purple);
+}
+
+.log-line .info {
+  color: var(--neon-cyan);
+}
+
+.log-line .success {
+  color: var(--neon-green);
+}
+
+.log-line .error {
+  color: var(--danger);
+}
+
+/* ========== 底部留白 ========== */
+.spacer {
+  height: 80px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- 标题栏 -->
+  <div class="header">
+    <h1 class="glitch" data-text="CYBER-AUTH">CYBER-AUTH</h1>
+    <div class="subtitle">双因素身份验证终端 v2.0.77</div>
+    <div class="status-line">
+      <div class="status-indicator">
+        <div class="led green"></div>
+        <span>系统在线</span>
+      </div>
+      <span>节点: SH-DC-03</span>
+      <div class="status-indicator">
+        <span>加密: AES-256</span>
+        <div class="led green"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 页面1: 账号列表主页 ===== -->
+  <div class="page-label">// PAGE 01 // 账号列表终端</div>
+
+  <div class="terminal-window">
+    <div class="scan-line"></div>
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-title">root@cyber-auth:~/tokens</div>
+    </div>
+    <div class="terminal-body">
+      <div class="account-list">
+
+        <!-- 账号卡片 1 -->
+        <div class="account-card">
+          <div class="account-header">
+            <div class="account-info">
+              <div class="account-name">gavin@corp.io</div>
+              <div class="account-issuer">CORP SYSTEMS // PRODUCTION</div>
+            </div>
+            <div class="account-badge">TOTP</div>
+          </div>
+          <div class="otp-code">
+            482<span class="separator">-</span>916<span class="separator">-</span>307
+          </div>
+          <div class="otp-footer">
+            <div class="timer-bar">
+              <div class="timer-fill"></div>
+            </div>
+            <div class="timer-text">T-19s</div>
+          </div>
+        </div>
+
+        <!-- 账号卡片 2 -->
+        <div class="account-card">
+          <div class="account-header">
+            <div class="account-info">
+              <div class="account-name">admin@cloud.net</div>
+              <div class="account-issuer">CLOUD INFRA // K8S CLUSTER</div>
+            </div>
+            <div class="account-badge">HOTP</div>
+          </div>
+          <div class="otp-code">
+            715<span class="separator">-</span>403<span class="separator">-</span>892
+          </div>
+          <div class="otp-footer">
+            <div class="timer-bar">
+              <div class="timer-fill" style="width: 42%;"></div>
+            </div>
+            <div class="timer-text">T-12s</div>
+          </div>
+        </div>
+
+        <!-- 账号卡片 3 -->
+        <div class="account-card">
+          <div class="account-header">
+            <div class="account-info">
+              <div class="account-name">deploy@ci.dev</div>
+              <div class="account-issuer">CI/CD PIPELINE // STAGING</div>
+            </div>
+            <div class="account-badge">TOTP</div>
+          </div>
+          <div class="otp-code">
+            039<span class="separator">-</span>571<span class="separator">-</span>264
+          </div>
+          <div class="otp-footer">
+            <div class="timer-bar">
+              <div class="timer-fill" style="width: 88%;"></div>
+            </div>
+            <div class="timer-text">T-26s</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 添加账号按钮 -->
+      <button class="add-button">
+        <span class="add-icon">[+]</span> 注入新密钥 // ADD TOKEN
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 页面2: 添加账号 (扫码/手动) ===== -->
+  <div class="page-label">// PAGE 02 // 密钥注入终端</div>
+
+  <div class="terminal-window">
+    <div class="scan-line"></div>
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-title">root@cyber-auth:~/inject</div>
+    </div>
+    <div class="terminal-body">
+
+      <!-- 二维码扫描区 -->
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div style="font-size: 11px; color: var(--neon-cyan); margin-bottom: 12px; letter-spacing: 2px;">
+          [ QR SCANNER MODULE ]
+        </div>
+        <div class="qr-frame">
+          <div class="qr-corner tl"></div>
+          <div class="qr-corner tr"></div>
+          <div class="qr-corner bl"></div>
+          <div class="qr-corner br"></div>
+          <div class="qr-scan-line"></div>
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-dim); font-size: 10px; letter-spacing: 1px;">
+            等待扫描...
+          </div>
+        </div>
+      </div>
+
+      <div class="section-divider">或手动输入</div>
+
+      <!-- 手动输入表单 -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label style="font-size: 10px; color: var(--text-dim); letter-spacing: 1px; display: block; margin-bottom: 6px;">
+            &gt; 账户名称:
+          </label>
+          <input type="text" class="terminal-input" placeholder="user@domain.com" />
+        </div>
+        <div>
+          <label style="font-size: 10px; color: var(--text-dim); letter-spacing: 1px; display: block; margin-bottom: 6px;">
+            &gt; 服务提供商:
+          </label>
+          <input type="text" class="terminal-input" placeholder="CORP / AWS / GCP" />
+        </div>
+        <div>
+          <label style="font-size: 10px; color: var(--text-dim); letter-spacing: 1px; display: block; margin-bottom: 6px;">
+            &gt; 密钥 (Base32):
+          </label>
+          <input type="text" class="terminal-input" placeholder="JBSWY3DPEHPK3PXP" />
+        </div>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button class="btn-terminal btn-primary" style="flex: 1;">[ 确认注入 ]</button>
+          <button class="btn-terminal btn-danger" style="flex: 1;">[ 取消 ]</button>
+        </div>
+      </div>
+
+      <!-- 日志输出 -->
+      <div class="log-output">
+        <div class="log-line"><span class="timestamp">[2024-01-15 14:32:07]</span> <span class="info">INFO</span> 初始化密钥注入模块...</div>
+        <div class="log-line"><span class="timestamp">[2024-01-15 14:32:07]</span> <span class="info">INFO</span> QR 扫描器已就绪</div>
+        <div class="log-line"><span class="timestamp">[2024-01-15 14:32:08]</span> <span class="success">OK</span> 等待输入...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 页面3: 验证码详情 ===== -->
+  <div class="page-label">// PAGE 03 // 验证码输出终端</div>
+
+  <div class="terminal-window">
+    <div class="scan-line"></div>
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-title">root@cyber-auth:~/verify</div>
+    </div>
+    <div class="terminal-body">
+
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div style="font-size: 11px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 8px;">
+          目标: gavin@corp.io
+        </div>
+        <div style="font-size: 10px; color: var(--neon-purple); letter-spacing: 1px;">
+          CORP SYSTEMS // PRODUCTION ENV
+        </div>
+      </div>
+
+      <!-- 大号验证码 -->
+      <div style="text-align: center; padding: 24px 0; background: var(--bg-input); border: 1px solid var(--neon-green); border-radius: 4px; margin-bottom: 16px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);">
+        <div style="font-size: 48px; font-weight: bold; color: var(--neon-green); text-shadow: 0 0 15px var(--neon-green), 0 0 30px var(--neon-green), 0 0 45px rgba(0, 255, 65, 0.5); letter-spacing: 12px; font-family: monospace;">
+          482916307
+        </div>
+        <div style="margin-top: 12px; font-size: 10px; color: var(--text-dim); letter-spacing: 2px;">
+          SHA1 // 6 DIGITS // 30S INTERVAL
+        </div>
+      </div>
+
+      <!-- 倒计时进度条 -->
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 6px;">
+          <span>生命周期</span>
+          <span style="color: var(--neon-cyan); text-shadow: 0 0 6px var(--neon-cyan);">T-19s</span>
+        </div>
+        <div class="timer-bar" style="height: 6px; border-radius: 3px;">
+          <div class="timer-fill" style="height: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-terminal btn-primary" style="flex: 1;">[ 复制令牌 ]</button>
+        <button class="btn-terminal" style="flex: 1;">[ 刷新 ]</button>
+      </div>
+
+      <!-- 验证历史 -->
+      <div class="section-divider">验证日志</div>
+      <div class="log-output" style="max-height: 100px;">
+        <div class="log-line"><span class="timestamp">[14:30:00]</span> <span class="success">VALID</span> 令牌已生成 // 482-916-307</div>
+        <div class="log-line"><span class="timestamp">[14:29:30]</span> <span class="success">VALID</span> 令牌已生成 // 891-203-445</div>
+        <div class="log-line"><span class="timestamp">[14:29:00]</span> <span class="success">VALID</span> 令牌已生成 // 156-778-032</div>
+        <div class="log-line"><span class="timestamp">[14:28:30]</span> <span class="error">EXPIRED</span> 令牌已过期 // 623-441-990</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 页面4: 设置页 ===== -->
+  <div class="page-label">// PAGE 04 // 系统配置终端</div>
+
+  <div class="terminal-window">
+    <div class="scan-line"></div>
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+      </div>
+      <div class="terminal-title">root@cyber-auth:~/config</div>
+    </div>
+    <div class="terminal-body">
+
+      <div class="settings-list">
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#9881;</div>
+            <div class="settings-label">令牌算法</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="settings-value">SHA1</div>
+            <div class="settings-arrow">&#10095;</div>
+          </div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#9201;</div>
+            <div class="settings-label">刷新间隔</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="settings-value">30s</div>
+            <div class="settings-arrow">&#10095;</div>
+          </div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#128274;</div>
+            <div class="settings-label">生物识别解锁</div>
+          </div>
+          <div class="toggle active"></div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#128276;</div>
+            <div class="settings-label">令牌到期提醒</div>
+          </div>
+          <div class="toggle active"></div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#128190;</div>
+            <div class="settings-label">云端备份</div>
+          </div>
+          <div class="toggle"></div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#127760;</div>
+            <div class="settings-label">代理服务器</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="settings-value">10.0.0.1:8080</div>
+            <div class="settings-arrow">&#10095;</div>
+          </div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#128065;</div>
+            <div class="settings-label">审计日志</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="settings-value">查看</div>
+            <div class="settings-arrow">&#10095;</div>
+          </div>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-left">
+            <div class="settings-icon">&#128736;</div>
+            <div class="settings-label">高级设置</div>
+          </div>
+          <div class="settings-arrow">&#10095;</div>
+        </div>
+
+      </div>
+
+      <div class="section-divider">系统信息</div>
+
+      <div style="background: var(--bg-input); border: 1px solid var(--border-glow); border-radius: 3px; padding: 12px; font-size: 10px; color: var(--text-dim); line-height: 1.8;">
+        <div><span style="color: var(--neon-cyan);">版本:</span> CyberAuth v2.0.77-stable</div>
+        <div><span style="color: var(--neon-cyan);">构建:</span> 2024-01-15T14:30:00Z</div>
+        <div><span style="color: var(--neon-cyan);">密钥:</span> 4 已注册</div>
+        <div><span style="color: var(--neon-cyan);">加密:</span> AES-256-GCM</div>
+        <div><span style="color: var(--neon-cyan);">节点:</span> SH-DC-03 // Zone-A</div>
+      </div>
+
+      <div style="margin-top: 20px; text-align: center;">
+        <button class="btn-terminal btn-danger" style="width: 100%;">[ 清除所有密钥 // DANGER ]</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 底部留白 -->
+  <div class="spacer"></div>
+
+</div>
+
+<!-- 底部导航栏 -->
+<div class="bottom-nav">
+  <div class="nav-item active">
+    <div class="nav-icon">&#9632;</div>
+    <div>令牌</div>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">+</div>
+    <div>注入</div>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">&#9881;</div>
+    <div>配置</div>
+  </div>
+</div>
+
+</body>
+</html>

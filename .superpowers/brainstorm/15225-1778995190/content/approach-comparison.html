@@ -1,0 +1,70 @@
+<h2>2FA App 开发方案对比</h2>
+<p class="subtitle">请 review 以下 3 个架构方案</p>
+
+<div class="cards">
+  <div class="card" data-choice="approach-a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #F0F4F8 0%, #E8EEF2 100%); padding: 20px;">
+      <div style="font-family: monospace; font-size: 12px; background: white; padding: 16px; border-radius: 12px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+        <div>📁 src/</div>
+        <div style="padding-left: 16px;">├── context/</div>
+        <div style="padding-left: 16px;">├── components/</div>
+        <div style="padding-left: 16px;">├── screens/</div>
+        <div style="padding-left: 16px;">├── utils/</div>
+        <div style="padding-left: 16px;">├── hooks/</div>
+        <div style="padding-left: 16px;">└── theme/</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A: 模块化架构 (推荐)</h3>
+      <p>按功能划分模块，context 管理全局状态，components 复用 UI 组件。结构清晰，易于维护。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>✅ 优点</h4><ul><li>职责分离明确</li><li>组件可复用性高</li><li>便于团队协作</li></ul></div>
+        <div class="cons"><h4>❌ 缺点</h4><ul><li>初期文件较多</li><li>需要更多抽象</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #F0F4F8 0%, #E8EEF2 100%); padding: 20px;">
+      <div style="font-family: monospace; font-size: 12px; background: white; padding: 16px; border-radius: 12px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+        <div>📁 src/</div>
+        <div style="padding-left: 16px;">├── features/</div>
+        <div style="padding-left: 32px;">├── account/</div>
+        <div style="padding-left: 32px;">├── auth/</div>
+        <div style="padding-left: 32px;">└── settings/</div>
+        <div style="padding-left: 16px;">├── shared/</div>
+        <div style="padding-left: 16px;">└── theme/</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B: Feature-Sliced 架构</h3>
+      <p>按业务特性组织代码，每个 feature 包含自己的组件、状态、工具。适合大型项目。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>✅ 优点</h4><ul><li>高内聚低耦合</li><li>feature 独立开发测试</li><li>扩展性强</li></ul></div>
+        <div class="cons"><h4>❌ 缺点</h4><ul><li>结构复杂度高</li><li>小项目过度设计</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="approach-c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #F0F4F8 0%, #E8EEF2 100%); padding: 20px;">
+      <div style="font-family: monospace; font-size: 12px; background: white; padding: 16px; border-radius: 12px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+        <div>📁 src/</div>
+        <div style="padding-left: 16px;">├── screens/</div>
+        <div style="padding-left: 32px;">├── HomeScreen.js</div>
+        <div style="padding-left: 32px;">├── AddScreen.js</div>
+        <div style="padding-left: 32px;">└── SettingsScreen.js</div>
+        <div style="padding-left: 16px;">├── components/</div>
+        <div style="padding-left: 16px;">└── AppContext.js</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C: 扁平化架构</h3>
+      <p>按页面组织代码，结构简单直接。适合小型项目快速开发。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>✅ 优点</h4><ul><li>结构最简单</li><li>上手成本低</li><li>开发速度快</li></ul></div>
+        <div class="cons"><h4>❌ 缺点</h4><ul><li>组件复用困难</li><li>后期容易混乱</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

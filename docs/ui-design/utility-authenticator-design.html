@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>身份验证器 - 设计原型</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3B82F6', 600: '#2563eb', 700: '#1d4ed8' },
+        neutral: { 50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 300: '#d4d4d4', 400: '#a3a3a3', 500: '#737373', 600: '#525252', 700: '#404040', 800: '#262626', 900: '#171717' }
+      },
+      fontFamily: { mono: ['"SF Mono"', '"Cascadia Code"', 'Consolas', 'monospace'] },
+      animation: { 'fade-in': 'fadeIn 150ms ease-out', 'slide-up': 'slideUp 200ms ease-out', 'toast': 'toastIn 200ms ease-out, toastOut 200ms ease-in 1.2s forwards' }
+    }
+  }
+}
+</script>
+<style>
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes toastIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+.page { display: none; }
+.page.active { display: flex; }
+.ring-progress { transform: rotate(-90deg); }
+</style>
+</head>
+<body class="bg-neutral-100 text-neutral-900 font-sans antialiased">
+
+<!-- Toast Container -->
+<div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden">
+  <div class="bg-neutral-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg animate-toast">已复制到剪贴板</div>
+</div>
+
+<!-- ==================== PAGE 1: 主页 ==================== -->
+<div id="page-home" class="page active flex-col h-screen max-w-md mx-auto bg-white relative">
+  <!-- Header -->
+  <header class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white sticky top-0 z-10">
+    <h1 class="text-lg font-semibold text-neutral-900">身份验证器</h1>
+    <button onclick="navigateTo('page-settings')" class="p-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150" aria-label="设置">
+      <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.594 3.94c.07-.547.54-.94 1.09-.94h2.63c.55 0 1.02.393 1.09.94l.249 1.94a13.15 13.15 0 012.194.908l1.776-.736c.506-.21 1.086.033 1.27.538l.827 2.273c.185.505-.013 1.068-.468 1.336l-1.59 1.006c.038.293.06.59.06.892s-.022.6-.06.893l1.59 1.005c.455.268.653.831.468 1.336l-.827 2.273c-.184.505-.764.748-1.27.538l-1.776-.736a13.15 13.15 0 01-2.194.908l-.249 1.94c-.07.547-.54.94-1.09.94h-2.63c-.55 0-1.02-.393-1.09-.94l-.249-1.94a13.15 13.15 0 01-2.194-.908l-1.776.736c-.506.21-1.086-.033-1.27-.538l-.827-2.273c-.185-.505.013-1.068.468-1.336l1.59-1.006A13.145 13.145 0 014.5 9c0-.302.022-.599.06-.892l-1.59-1.005c-.455-.268-.653-.831-.468-1.336l.827-2.273c.184-.505.764-.748 1.27-.538l1.776.736a13.15 13.15 0 012.194-.908l.249-1.94z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </header>
+
+  <!-- Account List -->
+  <main class="flex-1 overflow-y-auto px-4 py-3 space-y-3" id="account-list">
+    <!-- Account Card 1 -->
+    <div class="account-card bg-white border border-neutral-200 rounded-xl p-4 hover:border-brand-300 transition-colors duration-150 cursor-pointer" onclick="copyCode('847 291')">
+      <div class="flex items-start justify-between">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-neutral-500 truncate">Google</p>
+          <p class="text-sm font-medium text-neutral-900 truncate mt-0.5">user@gmail.com</p>
+        </div>
+        <!-- Progress Ring -->
+        <div class="relative w-10 h-10 ml-3 flex-shrink-0">
+          <svg class="w-10 h-10 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="24.35" stroke-linecap="round" class="timer-ring"/>
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-neutral-600 timer-text">23</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-2xl font-bold font-mono tracking-widest text-neutral-900 code-display">847 291</span>
+        <button class="p-1.5 rounded-md hover:bg-neutral-100 transition-colors duration-150 text-neutral-400 hover:text-neutral-600" onclick="event.stopPropagation(); navigateTo('page-edit')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Account Card 2 -->
+    <div class="account-card bg-white border border-neutral-200 rounded-xl p-4 hover:border-brand-300 transition-colors duration-150 cursor-pointer" onclick="copyCode('512 847')">
+      <div class="flex items-start justify-between">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-neutral-500 truncate">GitHub</p>
+          <p class="text-sm font-medium text-neutral-900 truncate mt-0.5">gavin@dev.io</p>
+        </div>
+        <div class="relative w-10 h-10 ml-3 flex-shrink-0">
+          <svg class="w-10 h-10 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="48.7" stroke-linecap="round" class="timer-ring"/>
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-neutral-600 timer-text">15</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-2xl font-bold font-mono tracking-widest text-neutral-900 code-display">512 847</span>
+        <button class="p-1.5 rounded-md hover:bg-neutral-100 transition-colors duration-150 text-neutral-400 hover:text-neutral-600" onclick="event.stopPropagation(); navigateTo('page-edit')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Account Card 3 -->
+    <div class="account-card bg-white border border-neutral-200 rounded-xl p-4 hover:border-brand-300 transition-colors duration-150 cursor-pointer" onclick="copyCode('093 456')">
+      <div class="flex items-start justify-between">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-neutral-500 truncate">AWS</p>
+          <p class="text-sm font-medium text-neutral-900 truncate mt-0.5">admin@company.com</p>
+        </div>
+        <div class="relative w-10 h-10 ml-3 flex-shrink-0">
+          <svg class="w-10 h-10 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="9.74" stroke-linecap="round" class="timer-ring"/>
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-neutral-600 timer-text">27</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-2xl font-bold font-mono tracking-widest text-neutral-900 code-display">093 456</span>
+        <button class="p-1.5 rounded-md hover:bg-neutral-100 transition-colors duration-150 text-neutral-400 hover:text-neutral-600" onclick="event.stopPropagation(); navigateTo('page-edit')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Account Card 4 - 倒计时即将结束（红色演示） -->
+    <div class="account-card bg-white border border-neutral-200 rounded-xl p-4 hover:border-brand-300 transition-colors duration-150 cursor-pointer" onclick="copyCode('761 028')">
+      <div class="flex items-start justify-between">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-neutral-500 truncate">Microsoft</p>
+          <p class="text-sm font-medium text-neutral-900 truncate mt-0.5">dev@outlook.com</p>
+        </div>
+        <div class="relative w-10 h-10 ml-3 flex-shrink-0">
+          <svg class="w-10 h-10 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e5e5" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="90.9" stroke-linecap="round" class="timer-ring"/>
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-red-600 timer-text">3</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-2xl font-bold font-mono tracking-widest text-neutral-900 code-display">761 028</span>
+        <button class="p-1.5 rounded-md hover:bg-neutral-100 transition-colors duration-150 text-neutral-400 hover:text-neutral-600" onclick="event.stopPropagation(); navigateTo('page-edit')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- FAB -->
+  <button onclick="openAddMenu()" class="absolute bottom-6 right-6 w-14 h-14 bg-brand-500 hover:bg-brand-600 text-white rounded-full shadow-lg shadow-brand-500/30 flex items-center justify-center transition-all duration-150 active:scale-95">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+  </button>
+</div>
+
+<!-- ==================== PAGE 1b: 空状态 ==================== -->
+<div id="page-empty" class="page flex-col h-screen max-w-md mx-auto bg-white relative">
+  <header class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
+    <h1 class="text-lg font-semibold text-neutral-900">身份验证器</h1>
+    <button class="p-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150">
+      <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.594 3.94c.07-.547.54-.94 1.09-.94h2.63c.55 0 1.02.393 1.09.94l.249 1.94a13.15 13.15 0 012.194.908l1.776-.736c.506-.21 1.086.033 1.27.538l.827 2.273c.185.505-.013 1.068-.468 1.336l-1.59 1.006c.038.293.06.59.06.892s-.022.6-.06.893l1.59 1.005c.455.268.653.831.468 1.336l-.827 2.273c-.184.505-.764.748-1.27.538l-1.776-.736a13.15 13.15 0 01-2.194.908l-.249 1.94c-.07.547-.54.94-1.09.94h-2.63c-.55 0-1.02-.393-1.09-.94l-.249-1.94a13.15 13.15 0 01-2.194-.908l-1.776.736c-.506.21-1.086-.033-1.27-.538l-.827-2.273c-.185-.505.013-1.068.468-1.336l1.59-1.006A13.145 13.145 0 014.5 9c0-.302.022-.599.06-.892l-1.59-1.005c-.455-.268-.653-.831-.468-1.336l.827-2.273c.184-.505.764-.748 1.27-.538l1.776.736a13.15 13.15 0 012.194-.908l.249-1.94z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </header>
+  <div class="flex-1 flex flex-col items-center justify-center px-8">
+    <div class="w-32 h-32 bg-neutral-100 rounded-2xl flex items-center justify-center mb-6">
+      <svg class="w-16 h-16 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    </div>
+    <h2 class="text-base font-semibold text-neutral-900 mb-1">暂无账号</h2>
+    <p class="text-sm text-neutral-500 text-center">点击下方按钮添加第一个账号<br>开始使用双重身份验证</p>
+  </div>
+  <button onclick="openAddMenu()" class="absolute bottom-6 right-6 w-14 h-14 bg-brand-500 hover:bg-brand-600 text-white rounded-full shadow-lg shadow-brand-500/30 flex items-center justify-center transition-all duration-150 active:scale-95">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+  </button>
+</div>
+
+<!-- ==================== ADD MENU OVERLAY ==================== -->
+<div id="overlay-add" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0 bg-black/30 animate-fade-in" onclick="closeAddMenu()"></div>
+  <div class="absolute bottom-0 left-0 right-0 max-w-md mx-auto animate-slide-up">
+    <div class="bg-white rounded-t-2xl p-4 pb-6">
+      <div class="w-10 h-1 bg-neutral-300 rounded-full mx-auto mb-4"></div>
+      <h3 class="text-base font-semibold text-neutral-900 mb-4">添加账号</h3>
+      <div class="space-y-2">
+        <button onclick="closeAddMenu(); navigateTo('page-manual')" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-50 transition-colors duration-150 text-left">
+          <div class="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-neutral-900">扫码添加</p>
+            <p class="text-xs text-neutral-500 mt-0.5">扫描二维码以设置身份验证</p>
+          </div>
+        </button>
+        <button onclick="closeAddMenu(); navigateTo('page-manual')" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-50 transition-colors duration-150 text-left">
+          <div class="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-neutral-900">手动输入</p>
+            <p class="text-xs text-neutral-500 mt-0.5">手动输入密钥设置账号</p>
+          </div>
+        </button>
+        <button onclick="closeAddMenu(); showToast('剪贴板内容已识别')" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-50 transition-colors duration-150 text-left">
+          <div class="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-neutral-900">剪贴板导入</p>
+            <p class="text-xs text-neutral-500 mt-0.5">从剪贴板自动识别并导入密钥</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PAGE 2: 手动输入表单 ==================== -->
+<div id="page-manual" class="page flex-col h-screen max-w-md mx-auto bg-white relative">
+  <!-- Header -->
+  <header class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
+    <button onclick="navigateTo('page-home')" class="p-2 -ml-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150">
+      <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+    </button>
+    <h1 class="text-base font-semibold text-neutral-900">手动输入</h1>
+    <div class="w-9"></div>
+  </header>
+
+  <!-- Form -->
+  <form class="flex-1 px-4 py-4 space-y-4" onsubmit="event.preventDefault(); showToast('账号已保存'); navigateTo('page-home');">
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">发行方 (Issuer)</label>
+      <input type="text" placeholder="例如：Google, GitHub" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">账号 (Account)</label>
+      <input type="text" placeholder="例如：user@example.com" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">密钥 (Base32)</label>
+      <input type="text" id="secret-input" placeholder="JBSWY3DPEHPK3PXP" oninput="updatePreview(this.value)" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+
+    <!-- Live Preview -->
+    <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+      <p class="text-xs text-neutral-500 mb-2">验证码预览</p>
+      <div class="flex items-center justify-between">
+        <span id="preview-code" class="text-2xl font-bold font-mono tracking-widest text-neutral-400">--- ---</span>
+        <div class="relative w-8 h-8">
+          <svg class="w-8 h-8 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#d4d4d4" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#a3a3a3" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="0" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors duration-150 active:scale-[0.98]">保存</button>
+  </form>
+</div>
+
+<!-- ==================== PAGE 3: 设置页 ==================== -->
+<div id="page-settings" class="page flex-col h-screen max-w-md mx-auto bg-white relative">
+  <header class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
+    <button onclick="navigateTo('page-home')" class="p-2 -ml-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150">
+      <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+    </button>
+    <h1 class="text-base font-semibold text-neutral-900">设置</h1>
+    <div class="w-9"></div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto px-4 py-3 space-y-6">
+    <!-- Appearance -->
+    <section>
+      <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">外观</h2>
+      <div class="bg-neutral-50 border border-neutral-200 rounded-xl divide-y divide-neutral-200">
+        <div class="flex items-center justify-between p-3">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">主题</p>
+            <p class="text-xs text-neutral-500 mt-0.5">选择应用的外观主题</p>
+          </div>
+          <select class="text-sm bg-white border border-neutral-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <option>浅色</option>
+            <option>深色</option>
+            <option selected>跟随系统</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security -->
+    <section>
+      <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">安全</h2>
+      <div class="bg-neutral-50 border border-neutral-200 rounded-xl divide-y divide-neutral-200">
+        <div class="flex items-center justify-between p-3">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">应用锁</p>
+            <p class="text-xs text-neutral-500 mt-0.5">打开应用时需要生物识别或密码</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer">
+            <div class="w-9 h-5 bg-neutral-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Management -->
+    <section>
+      <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">数据管理</h2>
+      <div class="bg-neutral-50 border border-neutral-200 rounded-xl divide-y divide-neutral-200">
+        <button class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">导出账号</p>
+            <p class="text-xs text-neutral-500 mt-0.5">导出为 JSON 或 URI 格式</p>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+        <button class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">备份账号</p>
+            <p class="text-xs text-neutral-500 mt-0.5">创建加密备份文件</p>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+        <button class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">导入账号</p>
+            <p class="text-xs text-neutral-500 mt-0.5">从备份文件恢复账号</p>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Advanced -->
+    <section>
+      <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">高级</h2>
+      <div class="bg-neutral-50 border border-neutral-200 rounded-xl divide-y divide-neutral-200">
+        <div class="flex items-center justify-between p-3">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">时间校准</p>
+            <p class="text-xs text-neutral-500 mt-0.5">自动校准设备时间差</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-neutral-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+        <button class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">显示时间差值</p>
+            <p class="text-xs text-neutral-500 mt-0.5">显示设备与服务器时间差</p>
+          </div>
+          <span class="text-xs text-neutral-400 mr-1">+0.2s</span>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+        <button onclick="showToast('时间已校准')" class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <div>
+            <p class="text-sm font-medium text-neutral-900">立即校准</p>
+            <p class="text-xs text-neutral-500 mt-0.5">手动触发时间同步</p>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-.785 3.503L17.5 3.5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- About -->
+    <section>
+      <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 px-1">关于</h2>
+      <div class="bg-neutral-50 border border-neutral-200 rounded-xl divide-y divide-neutral-200">
+        <div class="flex items-center justify-between p-3">
+          <p class="text-sm font-medium text-neutral-900">版本</p>
+          <span class="text-sm text-neutral-500">1.0.0</span>
+        </div>
+        <button class="w-full flex items-center justify-between p-3 hover:bg-neutral-100 transition-colors duration-150 text-left">
+          <p class="text-sm font-medium text-neutral-900">隐私政策</p>
+          <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <div class="h-8"></div>
+  </main>
+</div>
+
+<!-- ==================== PAGE 4: 编辑账号 ==================== -->
+<div id="page-edit" class="page flex-col h-screen max-w-md mx-auto bg-white relative">
+  <header class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
+    <button onclick="navigateTo('page-home')" class="p-2 -ml-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150">
+      <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+    </button>
+    <h1 class="text-base font-semibold text-neutral-900">编辑账号</h1>
+    <button onclick="showToast('已保存'); navigateTo('page-home')" class="p-2 -mr-2 rounded-lg hover:bg-neutral-100 transition-colors duration-150">
+      <span class="text-sm font-medium text-brand-500">保存</span>
+    </button>
+  </header>
+
+  <main class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <!-- Current Code Display -->
+    <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-xs text-neutral-500">Google - user@gmail.com</p>
+        <div class="relative w-8 h-8">
+          <svg class="w-8 h-8 ring-progress" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#d4d4d4" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#3B82F6" stroke-width="2.5" stroke-dasharray="97.4" stroke-dashoffset="32.5" stroke-linecap="round"/>
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-neutral-600">18</span>
+        </div>
+      </div>
+      <span class="text-3xl font-bold font-mono tracking-widest text-neutral-900">847 291</span>
+    </div>
+
+    <!-- Edit Form -->
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">发行方</label>
+      <input type="text" value="Google" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">账号名称</label>
+      <input type="text" value="user@gmail.com" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-neutral-700 mb-1.5">密钥 (Base32)</label>
+      <input type="text" value="JBSWY3DPEHPK3PXP" class="w-full px-3 py-2.5 bg-neutral-50 border border-neutral-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-150">
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="pt-4">
+      <button onclick="confirmDelete()" class="w-full flex items-center justify-center gap-2 py-3 border border-red-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors duration-150 active:scale-[0.98]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+        删除账号
+      </button>
+    </div>
+
+    <div class="h-8"></div>
+  </main>
+</div>
+
+<!-- ==================== DELETE CONFIRM DIALOG ==================== -->
+<div id="dialog-delete" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/40" onclick="closeDeleteDialog()"></div>
+  <div class="relative bg-white rounded-xl shadow-xl p-5 max-w-sm w-full animate-fade-in">
+    <h3 class="text-base font-semibold text-neutral-900 mb-1">删除账号？</h3>
+    <p class="text-sm text-neutral-500 mb-5">此操作不可撤销。该账号的验证码将不再生成。</p>
+    <div class="flex gap-3">
+      <button onclick="closeDeleteDialog()" class="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-sm font-medium rounded-lg transition-colors duration-150">取消</button>
+      <button onclick="closeDeleteDialog(); showToast('账号已删除'); navigateTo('page-home')" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors duration-150">删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Navigation
+function navigateTo(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+}
+
+// Add Menu
+function openAddMenu() {
+  const overlay = document.getElementById('overlay-add');
+  overlay.classList.remove('hidden');
+}
+function closeAddMenu() {
+  document.getElementById('overlay-add').classList.add('hidden');
+}
+
+// Toast
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.querySelector('div').textContent = msg;
+  toast.classList.remove('hidden');
+  setTimeout(() => toast.classList.add('hidden'), 1600);
+}
+
+// Copy Code
+function copyCode(code) {
+  showToast('已复制到剪贴板');
+}
+
+// Delete Dialog
+function confirmDelete() {
+  const dialog = document.getElementById('dialog-delete');
+  dialog.classList.remove('hidden');
+  dialog.style.display = 'flex';
+}
+function closeDeleteDialog() {
+  const dialog = document.getElementById('dialog-delete');
+  dialog.classList.add('hidden');
+  dialog.style.display = 'none';
+}
+
+// Manual Input Preview
+function updatePreview(secret) {
+  const preview = document.getElementById('preview-code');
+  if (secret.trim().length >= 8) {
+    // Mock: generate a pseudo-random code from secret
+    const hash = secret.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const code = String(hash % 1000000).padStart(6, '0');
+    preview.textContent = code.slice(0, 3) + ' ' + code.slice(3);
+    preview.classList.remove('text-neutral-400');
+    preview.classList.add('text-neutral-900');
+  } else {
+    preview.textContent = '--- ---';
+    preview.classList.remove('text-neutral-900');
+    preview.classList.add('text-neutral-400');
+  }
+}
+
+// Timer countdown animation
+function animateTimers() {
+  const circumference = 97.4;
+  let seconds = 30;
+
+  setInterval(() => {
+    seconds--;
+    if (seconds < 0) seconds = 30;
+
+    document.querySelectorAll('.timer-text').forEach(el => {
+      el.textContent = seconds;
+      const offset = circumference * (1 - seconds / 30);
+      const ring = el.closest('.relative').querySelector('.timer-ring') || el.parentElement.querySelector('.ring-progress circle:last-child');
+      if (ring) ring.setAttribute('stroke-dashoffset', offset);
+
+      // Red when < 5 seconds
+      if (seconds < 5) {
+        ring.setAttribute('stroke', '#ef4444');
+        el.classList.remove('text-neutral-600');
+        el.classList.add('text-red-600');
+      } else {
+        ring.setAttribute('stroke', '#3B82F6');
+        el.classList.remove('text-red-600');
+        el.classList.add('text-neutral-600');
+      }
+    });
+  }, 1000);
+}
+
+animateTimers();
+</script>
+</body>
+</html>

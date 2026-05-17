@@ -1,0 +1,86 @@
+<h2>2FA App 详细设计 - Feature-Sliced 架构</h2>
+<p class="subtitle">分模块展示设计，请逐个 review</p>
+
+<div class="section">
+  <h3>📁 项目结构</h3>
+  <div class="mockup">
+    <div class="mockup-header">目录结构</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; padding: 20px;">
+      <div>📁 src/</div>
+      <div style="padding-left: 16px;">├── features/</div>
+      <div style="padding-left: 32px;">├── accounts/     # 账号管理（增删改查、列表展示）</div>
+      <div style="padding-left: 32px;">├── otp/          # OTP 算法（TOTP/HOTP 生成、时间校准）</div>
+      <div style="padding-left: 32px;">├── security/     # 安全（加密存储、应用锁、生物识别）</div>
+      <div style="padding-left: 32px;">├── import-export/ # 导入导出（备份、恢复、分享）</div>
+      <div style="padding-left: 32px;">└── settings/     # 设置（主题、语言、高级选项）</div>
+      <div style="padding-left: 16px;">├── shared/</div>
+      <div style="padding-left: 32px;">├── components/  # 通用 UI 组件（ClayCard、TimerRing、Toggle 等）</div>
+      <div style="padding-left: 32px;">├── hooks/       # 自定义 Hooks</div>
+      <div style="padding-left: 32px;">├── utils/       # 工具函数（Base32 编解码、剪贴板等）</div>
+      <div style="padding-left: 32px;">└── theme/       # 主题配置（颜色、阴影、动画）</div>
+      <div style="padding-left: 16px;">├── navigation/   # 路由配置</div>
+      <div style="padding-left: 16px;">├── context/      # 全局 Context Providers</div>
+      <div style="padding-left: 16px;">└── App.js        # 应用入口</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🔑 核心数据流</h3>
+  <p style="padding: 16px;">账号数据 → 加密存储 → Context 状态 → UI 展示 → 倒计时自动刷新</p>
+  <div class="mockup">
+    <div class="mockup-header">数据流向</div>
+    <div class="mockup-body" style="padding: 20px;">
+      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px; background: white; padding: 16px; border-radius: 16px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+          <strong>1. 用户输入</strong><br/>
+          扫码/手动/剪贴板
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 16px; border-radius: 16px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+          <strong>2. 解析 & 验证</strong><br/>
+          otpauth URL → Secret
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 16px; border-radius: 16px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+          <strong>3. 加密存储</strong><br/>
+          expo-secure-store
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 16px; border-radius: 16px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+          <strong>4. 状态更新</strong><br/>
+          Context dispatch
+        </div>
+        <div style="flex: 1; min-width: 200px; background: white; padding: 16px; border-radius: 16px; box-shadow: inset 4px 4px 8px rgba(163,177,198,0.15), inset -4px -4px 8px rgba(255,255,255,0.9);">
+          <strong>5. UI 渲染</strong><br/>
+          验证码 + 倒计时
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>🎨 Claymorphism 主题系统</h3>
+  <div style="display: flex; gap: 16px;">
+    <div style="flex: 1; background: #F0F4F8; padding: 16px; border-radius: 16px;">
+      <h4 style="margin-bottom: 8px;">☀️ 浅色主题</h4>
+      <div style="background: white; padding: 12px; border-radius: 12px; box-shadow: 8px 8px 16px rgba(163,177,198,0.3), -8px -8px 16px rgba(255,255,255,0.8);">
+        <div style="display: flex; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #FFB6C1;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #A8D8EA;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #C3B1E1;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #B5EAD7;"></div>
+        </div>
+      </div>
+    </div>
+    <div style="flex: 1; background: #1A1D23; padding: 16px; border-radius: 16px;">
+      <h4 style="margin-bottom: 8px; color: #E8ECF1;">🌙 深色主题</h4>
+      <div style="background: #2A2E36; padding: 12px; border-radius: 12px; box-shadow: 6px 6px 14px rgba(0,0,0,0.4), -6px -6px 14px rgba(42,46,54,0.3);">
+        <div style="display: flex; gap: 8px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #D4949B;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #7BB8D0;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #9B8DC4;"></div>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #88C9A8;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
