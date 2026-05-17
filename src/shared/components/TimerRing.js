@@ -8,7 +8,7 @@ const SIZE = 20;
 /**
  * Generate SVG path for a circular sector (pie slice).
  * progress: 0..1 (0 = empty, 1 = full circle)
- * Starts from top, disappears counter-clockwise.
+ * Starts from top, disappears clockwise.
  */
 function describeArc(cx, cy, r, progress) {
   if (progress <= 0.001) return '';
@@ -16,18 +16,19 @@ function describeArc(cx, cy, r, progress) {
     return `M ${cx},${cy} m 0,${-r} a ${r},${r} 0 1,1 0,${r * 2} a ${r},${r} 0 1,1 0,${-r * 2} Z`;
   }
 
-  // Angle that remains filled (counter-clockwise disappearance = angle shrinks from 360 to 0)
+  // Angle that remains filled (clockwise disappearance = angle shrinks)
+  // Start from top (270° or -90°), the remaining arc goes counter-clockwise from top
   const angle = progress * 360;
-  // Start from top: in SVG coords top is (cx, cy - r)
-  const endAngleRad = ((-90 + angle) * Math.PI) / 180;
+  // End point: going counter-clockwise from top by `angle` degrees
+  const endAngleRad = ((-90 - angle) * Math.PI) / 180;
 
   const ex = cx + r * Math.cos(endAngleRad);
   const ey = cy + r * Math.sin(endAngleRad);
 
   const largeArc = angle > 180 ? 1 : 0;
 
-  // Always sweep clockwise (sweep=1)
-  return `M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 ${largeArc},1 ${ex},${ey} Z`;
+  // Sweep counter-clockwise (sweep=0) from top
+  return `M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 ${largeArc},0 ${ex},${ey} Z`;
 }
 
 export function TimerRing({ seconds, totalSeconds = 30 }) {
