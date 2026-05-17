@@ -51,12 +51,12 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const isInitialized = useRef(false);
+  const settingsInitialized = useRef(false);
+  const accountsInitialized = useRef(false);
 
-  // Load settings and accounts on mount
+  // Load settings on mount
   useEffect(() => {
     const init = async () => {
-      // Load settings
       try {
         const saved = await AsyncStorage.getItem(SETTINGS_KEY);
         if (saved) {
@@ -65,26 +65,32 @@ export function AppProvider({ children }) {
       } catch {
         // Use defaults on parse error
       }
-
-      // Load accounts
-      const accounts = await loadAccounts();
-      if (accounts && accounts.length > 0) {
-        dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
-      }
-      isInitialized.current = true;
+      settingsInitialized.current = true;
     };
     init();
   }, []);
 
-  // Save settings when changed
+  // Load accounts on mount
   useEffect(() => {
-    if (!isInitialized.current) return;
+    const init = async () => {
+      const accounts = await loadAccounts();
+      if (accounts && accounts.length > 0) {
+        dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
+      }
+      accountsInitialized.current = true;
+    };
+    init();
+  }, []);
+
+  // Save settings when changed (skip initial load)
+  useEffect(() => {
+    if (!settingsInitialized.current) return;
     AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
   }, [state.settings]);
 
   // Save accounts when changed (skip initial load)
   useEffect(() => {
-    if (!isInitialized.current) return;
+    if (!accountsInitialized.current) return;
     if (state.accounts.length > 0) {
       saveAccounts(state.accounts);
     } else {

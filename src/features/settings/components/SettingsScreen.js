@@ -149,16 +149,26 @@ export function SettingsScreen() {
             onPress={handleCalibrate}
             colorIndex={1}
             rightElement={
-              <Text
-                style={[
-                  styles.calibrationOffset,
-                  {
-                    color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
-                  },
-                ]}
-              >
-                {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
-              </Text>
+              <View style={styles.calibrationRight}>
+                <Text
+                  style={[
+                    styles.calibrationOffset,
+                    {
+                      color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
+                </Text>
+                {lastCalibration && (
+                  <Text style={[styles.calibrationTime, { color: colors.textSecondary }]}>
+                    {new Date(lastCalibration).toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                )}
+              </View>
             }
           />
         )}
@@ -174,5 +184,10 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
+  calibrationRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   calibrationOffset: { fontSize: 13, fontWeight: '600' },
+  calibrationTime: { fontSize: 11 },
 });
