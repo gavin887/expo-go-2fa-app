@@ -3,20 +3,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { ClayCard } from '../../../shared/components';
 import { TimerRing } from '../../../shared/components/TimerRing';
+import { Toast } from '../../../shared/components';
 import { useTheme } from '../../../context/ThemeContext';
 import { useApp } from '../../../context/AppContext';
 import { totpGenerate, getTimeRemaining } from '../../otp/totp';
+import * as Clipboard from 'expo-clipboard';
 
 const ACCENT_COLORS = [
   'accentPink', 'accentBlue', 'accentPurple', 'accentGreen', 'accentOrange',
 ];
 
-export function AccountCard({ account, onPressCode }) {
+export function AccountCard({ account, onEdit, onDelete }) {
   const { colors } = useTheme();
   const { state, dispatch } = useApp();
   const [code, setCode] = useState('');
   const [seconds, setSeconds] = useState(30);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const timeOffset = state.settings.timeSyncEnabled ? state.settings.timeOffset : 0;
 
@@ -42,9 +46,19 @@ export function AccountCard({ account, onPressCode }) {
   const formattedCode = code.slice(0, 3) + ' ' + code.slice(3);
   const accentColor = colors[account.color || ACCENT_COLORS[0]] || colors.accentPurple;
 
+  const handleCopyCode = async () => {
+    await Clipboard.setStringAsync(code);
+    setToastMessage('已复制到剪贴板 ✓');
+    setToastVisible(true);
+  };
+
   return (
     <>
-      <Pressable onLongPress={() => setMenuVisible(true)} delayLongPress={500}>
+      <Pressable
+        onPress={handleCopyCode}
+        onLongPress={() => setMenuVisible(true)}
+        delayLongPress={500}
+      >
         <ClayCard style={styles.card}>
           <View style={styles.row}>
             <View style={styles.info}>
@@ -56,11 +70,9 @@ export function AccountCard({ account, onPressCode }) {
               </Text>
             </View>
             <View style={styles.codeSection}>
-              <Pressable onPress={() => onPressCode && onPressCode(formattedCode)} style={styles.codeBtn}>
-                <Text style={[styles.code, { color: colors.textPrimary }]}>
-                  {formattedCode}
-                </Text>
-              </Pressable>
+              <Text style={[styles.code, { color: colors.textPrimary }]}>
+                {formattedCode}
+              </Text>
               <TimerRing seconds={seconds} totalSeconds={account.period || 30} />
             </View>
           </View>
@@ -74,7 +86,16 @@ export function AccountCard({ account, onPressCode }) {
               style={[styles.menuItem, { backgroundColor: colors.inputBg }]}
               onPress={() => {
                 setMenuVisible(false);
-                dispatch({ type: 'DELETE_ACCOUNT', payload: account.id });
+                onEdit && onEdit();
+              }}
+            >
+              <Text style={[styles.menuText, { color: colors.accentBlue }]}>✏️ 编辑账号</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.menuItem, { backgroundColor: colors.inputBg }]}
+              onPress={() => {
+                setMenuVisible(false);
+                onDelete ? onDelete() : dispatch({ type: 'DELETE_ACCOUNT', payload: account.id });
               }}
             >
               <Text style={[styles.menuText, { color: '#FF6B6B' }]}>🗑 删除账号</Text>
@@ -82,6 +103,8 @@ export function AccountCard({ account, onPressCode }) {
           </View>
         </Pressable>
       </Modal>
+
+      <Toast message={toastMessage} visible={toastVisible} />
     </>
   );
 }
@@ -93,7 +116,6 @@ const styles = StyleSheet.create({
   issuer: { fontSize: 13, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   name: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
   codeSection: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  codeBtn: { padding: 8 },
   code: {
     fontFamily: 'monospace',
     fontSize: 28,

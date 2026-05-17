@@ -3,15 +3,14 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 export function ClayCard({ children, style, onPress, activeOpacity = 0.9 }) {
-  const { theme } = useTheme();
-  const cardStyle = styles(theme);
+  const { colors } = useTheme();
 
   if (onPress) {
     return (
       <Pressable
         style={({ pressed }) => [
-          cardStyle.card,
-          pressed && cardStyle.pressed,
+          cardStyle(colors).card,
+          pressed && cardStyle(colors).pressed,
           style,
         ]}
         onPress={onPress}
@@ -21,15 +20,15 @@ export function ClayCard({ children, style, onPress, activeOpacity = 0.9 }) {
     );
   }
 
-  return <View style={[cardStyle.card, style]}>{children}</View>;
+  return <View style={[cardStyle(colors).card, style]}>{children}</View>;
 }
 
-const styles = (theme) =>
+const cardStyle = (colors) =>
   StyleSheet.create({
     card: {
       borderRadius: 24,
       padding: 20,
-      backgroundColor: theme.cardBg,
+      backgroundColor: colors.cardBg,
       shadowColor: '#A3B1C6',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,

@@ -7,14 +7,11 @@ import { useTheme } from '../context/ThemeContext';
 import { useAccounts } from '../features/accounts/hooks/useAccounts';
 import { AccountCard } from '../features/accounts/components/AccountCard';
 import { EmptyState } from '../features/accounts/components/EmptyState';
-import { FAB, Toast } from '../shared/components';
-import * as Clipboard from 'expo-clipboard';
+import { FAB } from '../shared/components';
 
 export function HomeScreen({ navigation }) {
   const { colors } = useTheme();
   const { accounts, addAccount, deleteAccount } = useAccounts();
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
 
   useFocusEffect(
@@ -22,16 +19,6 @@ export function HomeScreen({ navigation }) {
       // Accounts loaded via persistence in AppContext
     }, [])
   );
-
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setToastVisible(true);
-  };
-
-  const handleCopyCode = async (code) => {
-    await Clipboard.setStringAsync(code.replace(' ', ''));
-    showToast('已复制到剪贴板 ✓');
-  };
 
   const handleDelete = (id) => {
     Alert.alert('删除账号', '确定要删除此账号吗？', [
@@ -41,7 +28,6 @@ export function HomeScreen({ navigation }) {
         style: 'destructive',
         onPress: () => {
           deleteAccount(id);
-          showToast('已删除');
         },
       },
     ]);
@@ -50,7 +36,8 @@ export function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>身份验证器</Text>
           <Pressable
             style={[styles.settingsBtn, { backgroundColor: colors.cardBg }]}
             onPress={() => navigation.navigate('Settings')}
@@ -69,7 +56,6 @@ export function HomeScreen({ navigation }) {
             <AccountCard
               key={acc.id}
               account={acc}
-              onPressCode={handleCopyCode}
               onEdit={() => navigation.navigate('EditAccount', { id: acc.id })}
               onDelete={() => handleDelete(acc.id)}
             />
@@ -121,8 +107,6 @@ export function HomeScreen({ navigation }) {
           </View>
         </Pressable>
       </Modal>
-
-      <Toast message={toastMessage} visible={toastVisible} />
     </SafeAreaView>
   );
 }
@@ -130,6 +114,7 @@ export function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 16, paddingTop: 8, paddingBottom: 8 },
+  title: { fontSize: 28, fontWeight: '800' },
   settingsBtn: {
     width: 40,
     height: 40,
