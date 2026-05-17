@@ -3,11 +3,11 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../context/ThemeContext';
-import { useAccounts } from '../../features/accounts/hooks/useAccounts';
-import { AccountCard } from '../../features/accounts/components/AccountCard';
-import { EmptyState } from '../../features/accounts/components/EmptyState';
-import { FAB, Toast } from '../../shared/components';
+import { useTheme } from '../context/ThemeContext';
+import { useAccounts } from '../features/accounts/hooks/useAccounts';
+import { AccountCard } from '../features/accounts/components/AccountCard';
+import { EmptyState } from '../features/accounts/components/EmptyState';
+import { FAB, Toast } from '../shared/components';
 import * as Clipboard from 'expo-clipboard';
 
 export function HomeScreen({ navigation }) {

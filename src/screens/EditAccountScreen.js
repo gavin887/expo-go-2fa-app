@@ -1,8 +1,8 @@
 // [AI] Edit account screen with delete confirmation
 import React from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
-import { useAccounts } from '../../features/accounts/hooks/useAccounts';
-import { ManualAddForm } from '../../features/accounts/components/ManualAddForm';
+import { useAccounts } from '../features/accounts/hooks/useAccounts';
+import { ManualAddForm } from '../features/accounts/components/ManualAddForm';
 
 export function EditAccountScreen({ route, navigation }) {
   const { id } = route.params;

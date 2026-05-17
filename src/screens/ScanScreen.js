@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import { Camera } from 'expo-camera';
-import { parseOtpauthUrl } from '../../shared/utils/otpauth';
-import { useTheme } from '../../context/ThemeContext';
+import { parseOtpauthUrl } from '../shared/utils/otpauth';
+import { useTheme } from '../context/ThemeContext';
 
 export function ScanScreen({ navigation }) {
   const { colors } = useTheme();
