@@ -1,30 +1,37 @@
 // [AI] Network time calibration utilities
 
 /**
- * Fetch network time from multiple sources with fallback.
- * Uses HTTPS endpoints only (http is often blocked).
+ * Fetch network time via HTTPS Date header from NTP Pool China.
+ * Uses multiple fallback sources for reliability.
  */
 
 const TIME_SOURCES = [
-  // NTP Pool project related — HTTP Date header approach
+  // NTP Pool China — HEAD request, parse Date header
   {
-    url: 'https://ntp.pool.org/',
-    parse: (res) => new Date(res.headers.get('date')).getTime(),
+    url: 'https://www.ntppool.org/zh/',
+    method: 'HEAD',
+    parse: (res) => {
+      const date = res.headers.get('date');
+      return date ? new Date(date).getTime() : null;
+    },
   },
-  // WorldTimeAPI (HTTPS)
+  // NTP Pool main site (fallback)
   {
-    url: 'https://worldtimeapi.org/api/timezone/UTC',
-    parse: (res) => res.json().then((d) => new Date(d.utc_datetime).getTime()),
+    url: 'https://www.ntppool.org/',
+    method: 'HEAD',
+    parse: (res) => {
+      const date = res.headers.get('date');
+      return date ? new Date(date).getTime() : null;
+    },
   },
-  // TimeAPI.io
-  {
-    url: 'https://timeapi.io/api/time/current/zone?timeZone=UTC',
-    parse: (res) => res.json().then((d) => new Date(d.dateTime).getTime()),
-  },
-  // Fallback: any reliable HTTPS service with Date header
+  // Google generate_204 (lightweight, reliable)
   {
     url: 'https://www.google.com/generate_204',
-    parse: (res) => new Date(res.headers.get('date')).getTime(),
+    method: 'HEAD',
+    parse: (res) => {
+      const date = res.headers.get('date');
+      return date ? new Date(date).getTime() : null;
+    },
   },
 ];
 
@@ -36,7 +43,7 @@ async function fetchNetworkTime() {
 
       const response = await fetch(source.url, {
         signal: controller.signal,
-        method: 'HEAD',
+        method: source.method || 'GET',
       });
       clearTimeout(timeout);
 
@@ -44,7 +51,6 @@ async function fetchNetworkTime() {
       const time = await source.parse(response);
       if (time && !isNaN(time)) return time;
     } catch {
-      // Try next source
       continue;
     }
   }
