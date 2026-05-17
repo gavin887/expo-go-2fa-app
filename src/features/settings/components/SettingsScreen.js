@@ -142,6 +142,12 @@ export function SettingsScreen() {
           }
           colorIndex={1}
         />
+        <SettingsItem
+          icon="🔄"
+          label="立即校准"
+          onPress={handleCalibrate}
+          colorIndex={1}
+        />
         {timeSyncEnabled && (
           <View style={styles.calibrationInfo}>
             <View style={[styles.calibrationBox, { backgroundColor: colors.inputBg }]}>
@@ -158,12 +164,6 @@ export function SettingsScreen() {
             </View>
           </View>
         )}
-        <SettingsItem
-          icon="🔄"
-          label="立即校准"
-          onPress={handleCalibrate}
-          colorIndex={1}
-        />
       </SettingsGroup>
 
       <SettingsGroup label="关于">
