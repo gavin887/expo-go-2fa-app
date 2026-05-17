@@ -18,11 +18,13 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY).then((saved) => {
+      console.log('[ThemeContext] Loaded theme:', saved || '(none, using system)');
       if (saved) setThemeMode(saved);
     });
   }, []);
 
   const updateTheme = async (mode) => {
+    console.log('[ThemeContext] Saving theme:', mode);
     setThemeMode(mode);
     await AsyncStorage.setItem(THEME_KEY, mode);
   };
