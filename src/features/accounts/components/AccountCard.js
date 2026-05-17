@@ -36,7 +36,7 @@ export function AccountCard({ account, onEdit, onDelete, onCopy }) {
 
   useEffect(() => {
     updateCode();
-    const interval = setInterval(updateCode, 1000);
+    const interval = setInterval(updateCode, 300);
     return () => clearInterval(interval);
   }, [updateCode]);
 

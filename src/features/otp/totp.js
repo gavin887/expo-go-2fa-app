@@ -37,7 +37,7 @@ function totpGenerate(secret, timeOffset = 0, digits = 6, period = 30, algorithm
 }
 
 function getTimeRemaining(timeOffset = 0, period = 30) {
-  const now = Math.floor((Date.now() + timeOffset) / 1000);
+  const now = (Date.now() + timeOffset) / 1000;
   return period - (now % period);
 }
 
