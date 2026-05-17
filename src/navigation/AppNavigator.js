@@ -17,15 +17,13 @@ export function AppNavigator() {
       <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{
-          headerStyle: { backgroundColor: 'transparent' },
-          headerTransparent: true,
-          headerTitleStyle: { fontWeight: '800', fontSize: 28 },
+          headerTitleStyle: { fontWeight: '800', fontSize: 22 },
         }}
       >
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: '身份验证器', headerLargeTitle: true }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen name="Scan" component={ScanScreen} options={{ title: '扫描二维码' }} />
         <Stack.Screen name="ManualAdd" component={ManualAddScreen} options={{ title: '手动添加' }} />

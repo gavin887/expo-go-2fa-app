@@ -50,11 +50,11 @@ export function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>身份验证器</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
           <Pressable
             style={[styles.settingsBtn, { backgroundColor: colors.cardBg }]}
             onPress={() => navigation.navigate('Settings')}
+            hitSlop={8}
           >
             <Text style={{ fontSize: 18 }}>⚙</Text>
           </Pressable>
@@ -129,8 +129,7 @@ export function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 16, paddingBottom: 8 },
-  title: { fontSize: 28, fontWeight: '800' },
+  header: { padding: 16, paddingTop: 8, paddingBottom: 8 },
   settingsBtn: {
     width: 40,
     height: 40,
