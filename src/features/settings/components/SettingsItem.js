@@ -24,6 +24,7 @@ export function SettingsItem({ icon, label, value, onPress, rightElement, colorI
       </View>
       {rightElement || (value && <Text style={[styles.value, { color: colors.textSecondary }]}>{value}</Text>)}
       {!rightElement && !value && <Text style={styles.chevron}>›</Text>}
+      {rightElement && onPress && <Text style={styles.chevron}>›</Text>}
     </Pressable>
   );
 }

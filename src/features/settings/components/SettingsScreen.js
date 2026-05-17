@@ -143,27 +143,37 @@ export function SettingsScreen() {
           colorIndex={1}
         />
         {timeSyncEnabled && (
-          <View style={styles.calibrationInfo}>
-            <View style={[styles.calibrationBox, { backgroundColor: colors.inputBg }]}>
-              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                时间差: <Text style={{ fontWeight: '700', color: colors.accentGreen }}>
-                  {timeOffset !== 0 ? `${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
+          <SettingsItem
+            icon="🔄"
+            label="立即校准"
+            onPress={handleCalibrate}
+            colorIndex={1}
+            rightElement={
+              <View style={styles.calibrationRight}>
+                <Text
+                  style={[
+                    styles.calibrationOffset,
+                    {
+                      color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
                 </Text>
-              </Text>
-              {lastCalibration && (
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                  上次校准: {new Date(lastCalibration).toLocaleString('zh-CN')}
-                </Text>
-              )}
-            </View>
-          </View>
+                {lastCalibration && (
+                  <Text style={[styles.calibrationTime, { color: colors.textSecondary }]}>
+                    {new Date(lastCalibration).toLocaleString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                )}
+              </View>
+            }
+          />
         )}
-        <SettingsItem
-          icon="🔄"
-          label="立即校准"
-          onPress={handleCalibrate}
-          colorIndex={1}
-        />
       </SettingsGroup>
 
       <SettingsGroup label="关于">
@@ -176,9 +186,7 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
-  calibrationInfo: { margin: 12 },
-  calibrationBox: {
-    padding: 12,
-    borderRadius: 14,
-  },
+  calibrationRight: { alignItems: 'flex-end', gap: 2 },
+  calibrationOffset: { fontSize: 13, fontWeight: '600' },
+  calibrationTime: { fontSize: 11 },
 });
