@@ -185,6 +185,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
   calibrationRight: {
+    width: 52,
     alignItems: 'flex-end',
     gap: 2,
   },
