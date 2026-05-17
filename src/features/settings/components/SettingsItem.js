@@ -22,9 +22,11 @@ export function SettingsItem({ icon, label, value, onPress, rightElement, colorI
         </View>
         <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
       </View>
-      {rightElement || (value && <Text style={[styles.value, { color: colors.textSecondary }]}>{value}</Text>)}
-      {!rightElement && !value && <Text style={styles.chevron}>›</Text>}
-      {rightElement && onPress && <Text style={styles.chevron}>›</Text>}
+      <View style={styles.right}>
+        {rightElement || (value && <Text style={[styles.value, { color: colors.textSecondary }]}>{value}</Text>)}
+        {(!rightElement || onPress) && !value && <Text style={styles.chevron}>›</Text>}
+        {rightElement && onPress && <Text style={styles.chevron}>›</Text>}
+      </View>
     </Pressable>
   );
 }
@@ -38,6 +40,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBox: {
     width: 36,
     height: 36,
