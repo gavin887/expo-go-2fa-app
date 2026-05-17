@@ -1,18 +1,22 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAccounts, saveAccounts } from '../features/security/encryption';
 
 const AppContext = createContext();
 
+const SETTINGS_KEY = '@app_settings';
+
+const defaultSettings = {
+  timeSyncEnabled: true,
+  timeOffset: 0,
+  lastCalibration: null,
+  appLockEnabled: false,
+  appLockType: 'none',
+};
+
 const initialState = {
   accounts: [],
-  settings: {
-    theme: 'system',
-    timeSyncEnabled: true,
-    timeOffset: 0,
-    lastCalibration: null,
-    appLockEnabled: false,
-    appLockType: 'none',
-  },
+  settings: defaultSettings,
 };
 
 function appReducer(state, action) {
@@ -38,6 +42,8 @@ function appReducer(state, action) {
         ...state,
         settings: { ...state.settings, ...action.payload },
       };
+    case 'SET_SETTINGS':
+      return { ...state, settings: action.payload };
     default:
       return state;
   }
@@ -47,15 +53,34 @@ export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const isInitialized = useRef(false);
 
-  // Load accounts on mount
+  // Load settings and accounts on mount
   useEffect(() => {
-    loadAccounts().then((accounts) => {
+    const init = async () => {
+      // Load settings
+      try {
+        const saved = await AsyncStorage.getItem(SETTINGS_KEY);
+        if (saved) {
+          dispatch({ type: 'SET_SETTINGS', payload: { ...defaultSettings, ...JSON.parse(saved) } });
+        }
+      } catch {
+        // Use defaults on parse error
+      }
+
+      // Load accounts
+      const accounts = await loadAccounts();
       if (accounts && accounts.length > 0) {
         dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
       }
       isInitialized.current = true;
-    });
+    };
+    init();
   }, []);
+
+  // Save settings when changed
+  useEffect(() => {
+    if (!isInitialized.current) return;
+    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  }, [state.settings]);
 
   // Save accounts when changed (skip initial load)
   useEffect(() => {
@@ -63,7 +88,6 @@ export function AppProvider({ children }) {
     if (state.accounts.length > 0) {
       saveAccounts(state.accounts);
     } else {
-      // Clear storage if all accounts deleted
       import('../features/security/encryption').then(({ clearAccounts }) => clearAccounts());
     }
   }, [state.accounts]);
