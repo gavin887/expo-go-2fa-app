@@ -158,14 +158,12 @@ export function SettingsScreen() {
             </View>
           </View>
         )}
-        <SettingsGroup>
-          <SettingsItem
-            icon="🔄"
-            label="立即校准"
-            onPress={handleCalibrate}
-            colorIndex={1}
-          />
-        </SettingsGroup>
+        <SettingsItem
+          icon="🔄"
+          label="立即校准"
+          onPress={handleCalibrate}
+          colorIndex={1}
+        />
       </SettingsGroup>
 
       <SettingsGroup label="关于">

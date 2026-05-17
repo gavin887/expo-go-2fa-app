@@ -6,7 +6,9 @@ const ICON_COLORS = ['pink', 'blue', 'purple', 'green', 'orange'];
 
 export function SettingsItem({ icon, label, value, onPress, rightElement, colorIndex = 0 }) {
   const { colors } = useTheme();
-  const colorKey = `accent${ICON_COLORS[colorIndex % ICON_COLORS].charAt(0).toUpperCase()}${ICON_COLORS[colorIndex % ICON_COLORS].slice(1)}`;
+  const idx = typeof colorIndex === 'number' ? colorIndex : 0;
+  const colorName = ICON_COLORS[idx % ICON_COLORS.length];
+  const colorKey = `accent${colorName.charAt(0).toUpperCase()}${colorName.slice(1)}`;
   const iconBg = colors[colorKey] || colors.accentPurple;
 
   return (
