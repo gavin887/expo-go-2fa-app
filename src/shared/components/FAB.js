@@ -1,15 +1,21 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { Pressable, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 
 export function FAB({ onPress, icon = '+' }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.fab,
-        { backgroundColor: colors.fabBg },
+        {
+          backgroundColor: colors.fabBg,
+          right: 16 + insets.right,
+          bottom: 16 + insets.bottom,
+        },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
@@ -22,8 +28,6 @@ export function FAB({ onPress, icon = '+' }) {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
     width: 64,
     height: 64,
     borderRadius: 32,
