@@ -1,12 +1,12 @@
 // [AI] src/features/settings/components/SettingsScreen.js
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, Alert, Text } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useApp } from '../../../context/AppContext';
 import { useSecurity } from '../../../context/SecurityContext';
 import { SettingsGroup } from './SettingsGroup';
 import { SettingsItem } from './SettingsItem';
-import { Toggle } from '../../../shared/components';
+import { Toggle, Toast } from '../../../shared/components';
 import { exportAsSecrets, exportAsOtpauthUrls } from '../../import-export/export';
 import { backupAccounts } from '../../import-export/backup';
 import { pickFile, importFromBackup, importFromText } from '../../import-export/import';
@@ -17,6 +17,16 @@ export function SettingsScreen() {
   const { state, dispatch } = useApp();
   const { lockEnabled, biometricAvailable, toggleLock } = useSecurity();
   const [calibrating, setCalibrating] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimer = useRef(null);
+
+  const showToast = useCallback((msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMessage(msg);
+    setToastVisible(true);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 2000);
+  }, []);
 
   const themeLabels = { light: '浅色', dark: '深色', system: '跟随系统' };
 
@@ -86,9 +96,9 @@ export function SettingsScreen() {
           lastCalibration: result.calibratedAt,
         },
       });
-      Alert.alert('校准成功', `时间差: +${(result.offset / 1000).toFixed(2)} 秒`);
+      showToast(`时间差: ${result.offset > 0 ? '+' : ''}${(result.offset / 1000).toFixed(2)} 秒`);
     } catch (e) {
-      Alert.alert('校准失败', e.message);
+      showToast(`校准失败: ${e.message}`);
     } finally {
       setCalibrating(false);
     }
@@ -99,85 +109,90 @@ export function SettingsScreen() {
   const lastCalibration = state.settings.lastCalibration;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.bg }]} contentContainerStyle={styles.content}>
-      <SettingsGroup label="外观">
-        <SettingsItem
-          icon="🎨"
-          label="主题"
-          value={themeLabels[themeMode]}
-          onPress={() => {
-            const modes = ['light', 'dark', 'system'];
-            const next = modes[(modes.indexOf(themeMode) + 1) % 3];
-            setThemeMode(next);
-          }}
-          colorIndex={2}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup label="安全">
-        <SettingsItem
-          icon="🔒"
-          label="应用锁"
-          rightElement={
-            <Toggle value={lockEnabled} onValueChange={toggleLock} />
-          }
-          colorIndex={0}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup label="数据管理">
-        <SettingsItem icon="📤" label="导出账号" onPress={handleExport} colorIndex={1} />
-        <SettingsItem icon="💾" label="备份账号" onPress={handleBackup} colorIndex={3} />
-        <SettingsItem icon="📥" label="导入账号" onPress={handleImport} colorIndex={4} />
-      </SettingsGroup>
-
-      <SettingsGroup label="高级">
-        <SettingsItem
-          icon="⏱"
-          label="时间校准"
-          rightElement={
-            <Toggle value={timeSyncEnabled} onValueChange={(v) =>
-              dispatch({ type: 'UPDATE_SETTINGS', payload: { timeSyncEnabled: v } })
-            } />
-          }
-          colorIndex={1}
-        />
-        {timeSyncEnabled && (
+    <View style={{ flex: 1 }}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.bg }]} contentContainerStyle={styles.content}>
+        <SettingsGroup label="外观">
           <SettingsItem
-            icon="🔄"
-            label="立即校准"
-            onPress={handleCalibrate}
-            colorIndex={1}
-            rightElement={
-              <View style={styles.calibrationRight}>
-                <Text
-                  style={[
-                    styles.calibrationOffset,
-                    {
-                      color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
-                </Text>
-                {lastCalibration && (
-                  <Text style={[styles.calibrationTime, { color: colors.textSecondary }]}>
-                    {new Date(lastCalibration).toLocaleTimeString('zh-CN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                )}
-              </View>
-            }
+            icon="🎨"
+            label="主题"
+            value={themeLabels[themeMode]}
+            onPress={() => {
+              const modes = ['light', 'dark', 'system'];
+              const next = modes[(modes.indexOf(themeMode) + 1) % 3];
+              setThemeMode(next);
+            }}
+            colorIndex={2}
           />
-        )}
-      </SettingsGroup>
+        </SettingsGroup>
 
-      <SettingsGroup label="关于">
-        <SettingsItem icon="ℹ" label="版本" value="1.0.0" colorIndex={2} />
-      </SettingsGroup>
-    </ScrollView>
+        <SettingsGroup label="安全">
+          <SettingsItem
+            icon="🔒"
+            label="应用锁"
+            rightElement={
+              <Toggle value={lockEnabled} onValueChange={toggleLock} />
+            }
+            colorIndex={0}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label="数据管理">
+          <SettingsItem icon="📤" label="导出账号" onPress={handleExport} colorIndex={1} />
+          <SettingsItem icon="💾" label="备份账号" onPress={handleBackup} colorIndex={3} />
+          <SettingsItem icon="📥" label="导入账号" onPress={handleImport} colorIndex={4} />
+        </SettingsGroup>
+
+        <SettingsGroup label="高级">
+          <SettingsItem
+            icon="⏱"
+            label="时间校准"
+            rightElement={
+              <Toggle value={timeSyncEnabled} onValueChange={(v) =>
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { timeSyncEnabled: v } })
+              } />
+            }
+            colorIndex={1}
+          />
+          {timeSyncEnabled && (
+            <SettingsItem
+              icon="🔄"
+              label="立即校准"
+              onPress={handleCalibrate}
+              colorIndex={1}
+              rightElement={
+                <View style={styles.calibrationRight}>
+                  <Text
+                    style={[
+                      styles.calibrationOffset,
+                      {
+                        color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
+                  </Text>
+                  {lastCalibration && (
+                    <Text style={[styles.calibrationTime, { color: colors.textSecondary }]}>
+                      {new Date(lastCalibration).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  )}
+                </View>
+              }
+            />
+          )}
+        </SettingsGroup>
+
+        <SettingsGroup label="关于">
+          <SettingsItem icon="ℹ" label="版本" value="1.0.0" colorIndex={2} />
+        </SettingsGroup>
+      </ScrollView>
+      <View style={styles.toastContainer}>
+        <Toast message={toastMessage} visible={toastVisible} />
+      </View>
+    </View>
   );
 }
 
@@ -191,4 +206,11 @@ const styles = StyleSheet.create({
   },
   calibrationOffset: { fontSize: 13, fontWeight: '600' },
   calibrationTime: { fontSize: 11 },
+  toastContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 60,
+  },
 });
