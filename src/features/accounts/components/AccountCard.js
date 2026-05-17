@@ -49,7 +49,7 @@ export function AccountCard({ account, onPressCode, onEdit }) {
           </Text>
         </View>
         <View style={styles.codeSection}>
-          <Pressable onPress={onPressCode} style={styles.codeBtn}>
+          <Pressable onPress={() => onPressCode && onPressCode(code)} style={styles.codeBtn}>
             <Text style={[styles.code, { color: colors.textPrimary }]}>
               {formattedCode}
             </Text>
