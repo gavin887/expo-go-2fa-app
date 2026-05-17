@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, Platform } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../context/ThemeContext';
 
-export function FAB({ onPress, icon = '+' }) {
+export function FAB({ onPress }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -20,7 +21,14 @@ export function FAB({ onPress, icon = '+' }) {
       ]}
       onPress={onPress}
     >
-      <Text style={styles.icon}>{icon}</Text>
+      <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M12 5v14M5 12h14"
+          stroke="#FFFFFF"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </Svg>
     </Pressable>
   );
 }
@@ -42,10 +50,5 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
     transform: [{ scale: 0.95 }],
-  },
-  icon: {
-    fontSize: 32,
-    fontWeight: '300',
-    color: '#FFFFFF',
   },
 });
