@@ -1,32 +1,37 @@
-// [AI] Account card component with live OTP display
+// [AI] Account card component with live OTP display, edit/delete via long press
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { ClayCard } from '../../../shared/components';
 import { TimerRing } from '../../../shared/components/TimerRing';
 import { useTheme } from '../../../context/ThemeContext';
+import { useApp } from '../../../context/AppContext';
 import { totpGenerate, getTimeRemaining } from '../../otp/totp';
 
 const ACCENT_COLORS = [
   'accentPink', 'accentBlue', 'accentPurple', 'accentGreen', 'accentOrange',
 ];
 
-export function AccountCard({ account, onPressCode, onEdit }) {
+export function AccountCard({ account, onPressCode }) {
   const { colors } = useTheme();
+  const { state, dispatch } = useApp();
   const [code, setCode] = useState('');
   const [seconds, setSeconds] = useState(30);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const timeOffset = state.settings.timeSyncEnabled ? state.settings.timeOffset : 0;
 
   const updateCode = useCallback(() => {
-    const remaining = getTimeRemaining(0, account.period || 30);
+    const remaining = getTimeRemaining(timeOffset, account.period || 30);
     setSeconds(remaining);
     const newCode = totpGenerate(
       account.secret,
-      0,
+      timeOffset,
       account.digits || 6,
       account.period || 30,
       account.algorithm
     );
     setCode(newCode);
-  }, [account]);
+  }, [account, timeOffset]);
 
   useEffect(() => {
     updateCode();
@@ -38,26 +43,46 @@ export function AccountCard({ account, onPressCode, onEdit }) {
   const accentColor = colors[account.color || ACCENT_COLORS[0]] || colors.accentPurple;
 
   return (
-    <ClayCard style={styles.card}>
-      <View style={styles.row}>
-        <View style={styles.info}>
-          <Text style={[styles.issuer, { color: accentColor }]}>
-            {account.issuer?.toUpperCase()}
-          </Text>
-          <Text style={[styles.name, { color: colors.textPrimary }]}>
-            {account.account}
-          </Text>
-        </View>
-        <View style={styles.codeSection}>
-          <Pressable onPress={() => onPressCode && onPressCode(code)} style={styles.codeBtn}>
-            <Text style={[styles.code, { color: colors.textPrimary }]}>
-              {formattedCode}
-            </Text>
-          </Pressable>
-          <TimerRing seconds={seconds} totalSeconds={account.period || 30} />
-        </View>
-      </View>
-    </ClayCard>
+    <>
+      <Pressable onLongPress={() => setMenuVisible(true)} delayLongPress={500}>
+        <ClayCard style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.info}>
+              <Text style={[styles.issuer, { color: accentColor }]}>
+                {account.issuer?.toUpperCase()}
+              </Text>
+              <Text style={[styles.name, { color: colors.textPrimary }]}>
+                {account.account}
+              </Text>
+            </View>
+            <View style={styles.codeSection}>
+              <Pressable onPress={() => onPressCode && onPressCode(formattedCode)} style={styles.codeBtn}>
+                <Text style={[styles.code, { color: colors.textPrimary }]}>
+                  {formattedCode}
+                </Text>
+              </Pressable>
+              <TimerRing seconds={seconds} totalSeconds={account.period || 30} />
+            </View>
+          </View>
+        </ClayCard>
+      </Pressable>
+
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
+          <View style={[styles.menu, { backgroundColor: colors.cardBg }]}>
+            <Pressable
+              style={[styles.menuItem, { backgroundColor: colors.inputBg }]}
+              onPress={() => {
+                setMenuVisible(false);
+                dispatch({ type: 'DELETE_ACCOUNT', payload: account.id });
+              }}
+            >
+              <Text style={[styles.menuText, { color: '#FF6B6B' }]}>🗑 删除账号</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -75,4 +100,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 4,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  menu: {
+    borderRadius: 24,
+    padding: 20,
+    minWidth: 200,
+  },
+  menuItem: {
+    padding: 16,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  menuText: { fontSize: 16, fontWeight: '600' },
 });

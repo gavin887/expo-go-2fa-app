@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { loadAccounts, saveAccounts } from '../features/security/encryption';
 
 const AppContext = createContext();
 
@@ -16,6 +17,8 @@ const initialState = {
 
 function appReducer(state, action) {
   switch (action.type) {
+    case 'SET_ACCOUNTS':
+      return { ...state, accounts: action.payload };
     case 'ADD_ACCOUNT':
       return { ...state, accounts: [...state.accounts, action.payload] };
     case 'UPDATE_ACCOUNT':
@@ -42,6 +45,28 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const isInitialized = useRef(false);
+
+  // Load accounts on mount
+  useEffect(() => {
+    loadAccounts().then((accounts) => {
+      if (accounts && accounts.length > 0) {
+        dispatch({ type: 'SET_ACCOUNTS', payload: accounts });
+      }
+      isInitialized.current = true;
+    });
+  }, []);
+
+  // Save accounts when changed (skip initial load)
+  useEffect(() => {
+    if (!isInitialized.current) return;
+    if (state.accounts.length > 0) {
+      saveAccounts(state.accounts);
+    } else {
+      // Clear storage if all accounts deleted
+      import('../features/security/encryption').then(({ clearAccounts }) => clearAccounts());
+    }
+  }, [state.accounts]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
