@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '../shared/utils/storage';
 import { loadAccounts, saveAccounts } from '../features/security/encryption';
 
 const AppContext = createContext();
 
-const SETTINGS_KEY = '@app_settings';
+const SETTINGS_KEY = 'app_settings';
 
 const defaultSettings = {
   timeSyncEnabled: true,
@@ -59,7 +59,7 @@ export function AppProvider({ children }) {
     const init = async () => {
       // Load settings
       try {
-        const saved = await AsyncStorage.getItem(SETTINGS_KEY);
+        const saved = await getItem(SETTINGS_KEY);
         if (saved && mounted) {
           const parsed = JSON.parse(saved);
           console.log('[AppContext] Loaded settings:', saved);
@@ -91,7 +91,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isReady) return;
     console.log('[AppContext] Saving settings:', JSON.stringify(state.settings));
-    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+    setItem(SETTINGS_KEY, JSON.stringify(state.settings));
   }, [state.settings, isReady]);
 
   // Save accounts whenever they change (after mount)
