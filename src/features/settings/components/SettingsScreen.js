@@ -99,7 +99,7 @@ export function SettingsScreen() {
   const lastCalibration = state.settings.lastCalibration;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.bg }]} contentContainerStyle={styles.content}>
       <SettingsGroup label="外观">
         <SettingsItem
           icon="🎨"

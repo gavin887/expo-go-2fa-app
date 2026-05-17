@@ -138,6 +138,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 18,
     alignItems: 'center',
+    marginBottom: 8,
   },
   menuText: { fontSize: 16, fontWeight: '600' },
 });
