@@ -62,10 +62,7 @@ export function AppProvider({ children }) {
         const saved = await getItem(SETTINGS_KEY);
         if (saved && mounted) {
           const parsed = JSON.parse(saved);
-          console.log('[AppContext] Loaded settings:', saved);
           dispatch({ type: 'SET_SETTINGS', payload: { ...defaultSettings, ...parsed } });
-        } else {
-          console.log('[AppContext] No saved settings found, using defaults');
         }
       } catch (e) {
         console.warn('Failed to load settings:', e);
@@ -90,7 +87,6 @@ export function AppProvider({ children }) {
   // Save settings whenever they change (after mount)
   useEffect(() => {
     if (!isReady) return;
-    console.log('[AppContext] Saving settings:', JSON.stringify(state.settings));
     setItem(SETTINGS_KEY, JSON.stringify(state.settings));
   }, [state.settings, isReady]);
 
