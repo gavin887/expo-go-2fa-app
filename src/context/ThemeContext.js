@@ -4,6 +4,7 @@ import { lightTheme, darkTheme } from '../shared/theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ThemeContext = createContext();
+export { ThemeContext };
 
 const THEME_KEY = '@theme_preference';
 
