@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const ACCOUNTS_KEY = 'encrypted_accounts';
 
-function obfuscate(data) {
+export function obfuscate(data) {
   const json = JSON.stringify(data);
   const key = 0x5a;
   const bytes = [];
@@ -12,7 +12,7 @@ function obfuscate(data) {
   return btoa(String.fromCharCode(...bytes));
 }
 
-function deobfuscate(encoded) {
+export function deobfuscate(encoded) {
   try {
     const str = atob(encoded);
     const key = 0x5a;
