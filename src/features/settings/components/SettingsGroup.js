@@ -1,14 +1,33 @@
-import React from 'react';
+import React, { Children, isValidElement, cloneElement } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { SettingsItem } from './SettingsItem';
 
 export function SettingsGroup({ label, children }) {
   const { colors } = useTheme();
 
+  const childrenArray = Children.toArray(children);
+  // Find last SettingsItem index (only count SettingsItem children)
+  let lastItemIdx = -1;
+  for (let i = childrenArray.length - 1; i >= 0; i--) {
+    const child = childrenArray[i];
+    if (isValidElement(child) && child.type === SettingsItem) {
+      lastItemIdx = i;
+      break;
+    }
+  }
+
+  const enhancedChildren = childrenArray.map((child, index) => {
+    if (isValidElement(child) && child.type === SettingsItem) {
+      return cloneElement(child, { isLast: index === lastItemIdx });
+    }
+    return child;
+  });
+
   return (
     <View style={styles.group}>
       <Text style={[styles.groupLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <View style={[styles.groupCard, { backgroundColor: colors.settingGroupBg }]}>{children}</View>
+      <View style={[styles.groupCard, { backgroundColor: colors.settingGroupBg }]}>{enhancedChildren}</View>
     </View>
   );
 }

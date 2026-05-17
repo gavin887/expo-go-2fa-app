@@ -5,17 +5,18 @@ import { useTheme } from '../../context/ThemeContext';
 const TOGGLE_WIDTH = 52;
 const TOGGLE_HEIGHT = 32;
 const THUMB_SIZE = 26;
-const THUMB_OFFSET = 3;
+const THUMB_PADDING = 3;
+const MAX_OFFSET = TOGGLE_WIDTH - THUMB_SIZE - THUMB_PADDING; // 23
 
 export function Toggle({ value, onValueChange }) {
   const { colors } = useTheme();
   const offsetAnim = React.useRef(
-    new Animated.Value(value ? THUMB_OFFSET + THUMB_SIZE : THUMB_OFFSET)
+    new Animated.Value(value ? MAX_OFFSET : THUMB_PADDING)
   ).current;
 
   React.useEffect(() => {
     Animated.spring(offsetAnim, {
-      toValue: value ? THUMB_OFFSET + THUMB_SIZE : THUMB_OFFSET,
+      toValue: value ? MAX_OFFSET : THUMB_PADDING,
       useNativeDriver: true,
       tension: 65,
       friction: 11,

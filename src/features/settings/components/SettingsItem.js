@@ -4,7 +4,7 @@ import { useTheme } from '../../../context/ThemeContext';
 
 const ICON_COLORS = ['pink', 'blue', 'purple', 'green', 'orange'];
 
-export function SettingsItem({ icon, label, value, onPress, rightElement, colorIndex = 0 }) {
+export function SettingsItem({ icon, label, value, onPress, rightElement, colorIndex = 0, isLast = false }) {
   const { colors } = useTheme();
   const idx = typeof colorIndex === 'number' ? colorIndex : 0;
   const colorName = ICON_COLORS[idx % ICON_COLORS.length];
@@ -13,7 +13,7 @@ export function SettingsItem({ icon, label, value, onPress, rightElement, colorI
 
   return (
     <Pressable
-      style={[styles.item, { borderBottomColor: colors.divider }]}
+      style={[styles.item, { borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.divider }]}
       onPress={onPress}
     >
       <View style={styles.left}>
