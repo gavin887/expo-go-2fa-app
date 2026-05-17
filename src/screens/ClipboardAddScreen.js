@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useTheme } from '../../context/ThemeContext';
-import { parseOtpauthUrl } from '../../shared/utils/otpauth';
-import { isValidBase32 } from '../../shared/utils/base32';
-import { useAccounts } from '../../features/accounts/hooks/useAccounts';
+import { useTheme } from '../context/ThemeContext';
+import { parseOtpauthUrl } from '../shared/utils/otpauth';
+import { isValidBase32 } from '../shared/utils/base32';
+import { useAccounts } from '../features/accounts/hooks/useAccounts';
 
 export function ClipboardAddScreen({ navigation }) {
   const { colors } = useTheme();
