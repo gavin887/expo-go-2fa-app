@@ -144,7 +144,7 @@ jobs:
           cd ..
           
           # 设置产物路径
-          APK_PATH="android/app/build/outputs/apk/release/app-${ABI}-*.apk"
+          APK_PATH="android/app/build/outputs/apk/release/*${{ matrix.abi }}*.apk"
           if ls $APK_PATH 1> /dev/null 2>&1; then
             echo "✅ 构建成功: ${{ matrix.abi }}"
             echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
@@ -156,8 +156,8 @@ jobs:
       - name: Upload ABI-specific APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ matrix.abi }}
-          path: android/app/build/outputs/apk/release/*-${{ matrix.abi }}*.apk
+          name: app-${{ matrix.abi }}-${{ github.ref_name }}
+          path: android/app/build/outputs/apk/release/*${{ matrix.abi }}*.apk
           if-no-files-found: error
           compression-level: 0  # 不压缩，加快上传速度
           retention-days: 7
