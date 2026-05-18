@@ -1,0 +1,222 @@
+// [AI] src/features/settings/components/SettingsScreen.js
+import React, { useState, useRef, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, Alert, Text } from 'react-native';
+import { useTheme } from '../../../context/ThemeContext';
+import { useApp } from '../../../context/AppContext';
+import { useSecurity } from '../../../context/SecurityContext';
+import { SettingsGroup } from './SettingsGroup';
+import { SettingsItem } from './SettingsItem';
+import { Toggle, Toast } from '../../../shared/components';
+import { exportAsSecrets, exportAsOtpauthUrls } from '../../import-export/export';
+import { backupAccounts } from '../../import-export/backup';
+import { pickFile, importFromBackup, importFromText } from '../../import-export/import';
+import { calibrateTime } from '../../otp/time-sync';
+import { saveAccounts } from '../../security/encryption';
+
+export function SettingsScreen() {
+  const { colors, themeMode, setThemeMode } = useTheme();
+  const { state, dispatch } = useApp();
+  const { lockEnabled, biometricAvailable, toggleLock } = useSecurity();
+  const [calibrating, setCalibrating] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimer = useRef(null);
+
+  const showToast = useCallback((msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMessage(msg);
+    setToastVisible(true);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 2000);
+  }, []);
+
+  const themeLabels = { light: '浅色', dark: '深色', system: '跟随系统' };
+
+  const handleExport = () => {
+    Alert.alert('导出格式', '选择导出格式', [
+      { text: 'Secret 列表', onPress: () => exportAsSecrets(state.accounts) },
+      { text: 'otpauth 链接', onPress: () => exportAsOtpauthUrls(state.accounts) },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
+  const handleBackup = () => {
+    backupAccounts(state.accounts, state.settings);
+  };
+
+  const handleImport = () => {
+    Alert.alert('导入来源', '选择导入类型', [
+      {
+        text: '备份文件',
+        onPress: async () => {
+          const uri = await pickFile();
+          if (!uri) return;
+          try {
+            const result = await importFromBackup(uri, true);
+            if (result.type === 'merge') {
+              // One-shot set for faster UI update; persistence is handled by AppContext effect.
+              const next = [...state.accounts];
+              result.accounts.forEach((acc) => {
+                next.push({ ...acc, id: Date.now().toString() + Math.random().toString(36).slice(2, 8) });
+              });
+              dispatch({ type: 'SET_ACCOUNTS', payload: next });
+              // Critical: persist immediately (user may kill app right after import).
+              await saveAccounts(next);
+            }
+            showToast(`已导入 ${result.accounts.length} 个账号`);
+          } catch (e) {
+            showToast(`导入失败: ${e.message}`);
+          }
+        },
+      },
+      {
+        text: '文本文件',
+        onPress: async () => {
+          const uri = await pickFile();
+          if (!uri) return;
+          try {
+            const result = await importFromText(uri);
+            const next = [...state.accounts, ...result.accounts];
+            dispatch({ type: 'SET_ACCOUNTS', payload: next });
+            await saveAccounts(next);
+            const msg = result.errors.length > 0
+              ? `已导入 ${result.accounts.length} 个账号，${result.errors.length} 个失败`
+              : `已导入 ${result.accounts.length} 个账号`;
+            showToast(msg);
+          } catch (e) {
+            showToast(`导入失败: ${e.message}`);
+          }
+        },
+      },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
+  const handleCalibrate = async () => {
+    setCalibrating(true);
+    try {
+      const result = await calibrateTime();
+      dispatch({
+        type: 'UPDATE_SETTINGS',
+        payload: {
+          timeOffset: result.offset,
+          lastCalibration: result.calibratedAt,
+        },
+      });
+      showToast(`时间差: ${result.offset > 0 ? '+' : ''}${(result.offset / 1000).toFixed(2)} 秒`);
+    } catch (e) {
+      showToast(`校准失败: ${e.message}`);
+    } finally {
+      setCalibrating(false);
+    }
+  };
+
+  const timeSyncEnabled = state.settings.timeSyncEnabled;
+  const timeOffset = state.settings.timeOffset;
+  const lastCalibration = state.settings.lastCalibration;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.bg }]} contentContainerStyle={styles.content}>
+        <SettingsGroup label="外观">
+          <SettingsItem
+            icon="🎨"
+            label="主题"
+            value={themeLabels[themeMode]}
+            onPress={() => {
+              const modes = ['light', 'dark', 'system'];
+              const next = modes[(modes.indexOf(themeMode) + 1) % 3];
+              setThemeMode(next);
+            }}
+            colorIndex={2}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label="安全">
+          <SettingsItem
+            icon="🔒"
+            label="应用锁"
+            rightElement={
+              <Toggle value={lockEnabled} onValueChange={toggleLock} />
+            }
+            colorIndex={0}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label="数据管理">
+          <SettingsItem icon="📤" label="导出账号" onPress={handleExport} colorIndex={1} />
+          <SettingsItem icon="💾" label="备份账号" onPress={handleBackup} colorIndex={3} />
+          <SettingsItem icon="📥" label="导入账号" onPress={handleImport} colorIndex={4} />
+        </SettingsGroup>
+
+        <SettingsGroup label="高级">
+          <SettingsItem
+            icon="⏱"
+            label="时间校准"
+            rightElement={
+              <Toggle value={timeSyncEnabled} onValueChange={(v) =>
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { timeSyncEnabled: v } })
+              } />
+            }
+            colorIndex={1}
+          />
+          {timeSyncEnabled && (
+            <SettingsItem
+              icon="🔄"
+              label="立即校准"
+              onPress={handleCalibrate}
+              colorIndex={1}
+              rightElement={
+                <View style={styles.calibrationRight}>
+                  <Text
+                    style={[
+                      styles.calibrationOffset,
+                      {
+                        color: timeOffset !== 0 ? colors.accentGreen : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {timeOffset !== 0 ? `${timeOffset > 0 ? '+' : ''}${(timeOffset / 1000).toFixed(2)} 秒` : '未校准'}
+                  </Text>
+                  {lastCalibration && (
+                    <Text style={[styles.calibrationTime, { color: colors.textSecondary }]}>
+                      {new Date(lastCalibration).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  )}
+                </View>
+              }
+            />
+          )}
+        </SettingsGroup>
+
+        <SettingsGroup label="关于">
+          <SettingsItem icon="ℹ" label="版本" value="1.0.0" colorIndex={2} />
+        </SettingsGroup>
+      </ScrollView>
+      <View style={styles.toastContainer}>
+        <Toast message={toastMessage} visible={toastVisible} />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { padding: 16 },
+  calibrationRight: {
+    width: 52,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  calibrationOffset: { fontSize: 13, fontWeight: '600' },
+  calibrationTime: { fontSize: 11 },
+  toastContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 60,
+  },
+});

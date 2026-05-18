@@ -1,0 +1,133 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:  # 手动触发
+    inputs:
+      build_type:
+        description: '构建类型'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - ad-hoc
+
+# 设置环境变量，强制使用 Node.js 24
+env:
+  NODE_VERSION: '24'
+  # 解决 Node.js 24 的警告（明确告诉 GitHub 我们就是要用 24）
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. 设置 Node.js 24
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+      
+      # 🔧 安装 Yarn（如果还没有）
+      - name: Install Yarn
+        run: |
+          npm install -g yarn
+          yarn --version
+      
+      # 🔧 替换点：使用 yarn 安装依赖
+      - name: Install dependencies with Yarn
+        run: |
+          # 如果有 yarn.lock，使用 yarn install --frozen-lockfile（等同于 npm ci）
+          if [ -f "yarn.lock" ]; then
+            echo "📦 使用 yarn.lock 安装依赖（锁定版本）"
+            yarn install --frozen-lockfile
+          else
+            echo "📦 没有 yarn.lock，生成新的 lock 文件"
+            yarn install
+          fi
+      
+      # 4. 生成 iOS 原生文件夹
+      - name: Generate iOS native folder
+        run: npx expo prebuild --clean
+      
+      # 5. 打包 .ipa 文件
+      - name: Build and export IPA
+        run: |
+          cd ios
+          
+          # 获取项目名称
+          PROJECT_NAME=$(ls *.xcworkspace | sed 's/\.xcworkspace//')
+          echo "Project name: $PROJECT_NAME"
+          
+          # 创建临时目录
+          mkdir -p "${{ runner.temp }}/export"
+          
+          # 归档
+          xcodebuild archive \
+            -workspace "${PROJECT_NAME}.xcworkspace" \
+            -scheme "${PROJECT_NAME}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "${{ runner.temp }}/${PROJECT_NAME}.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          
+          # 创建 exportOptions.plist
+          cat > "${{ runner.temp }}/exportOptions.plist" << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>${{ github.event.inputs.build_type }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>iPhone Developer</string>
+            <key>provisioningProfiles</key>
+            <dict/>
+          </dict>
+          </plist>
+          EOF
+          
+          # 导出 IPA
+          xcodebuild -exportArchive \
+            -archivePath "${{ runner.temp }}/${PROJECT_NAME}.xcarchive" \
+            -exportPath "${{ runner.temp }}/export" \
+            -exportOptionsPlist "${{ runner.temp }}/exportOptions.plist" \
+            -allowProvisioningUpdates
+          
+          # 重命名 IPA 文件
+          IPA_PATH="${{ runner.temp }}/export/${PROJECT_NAME}.ipa"
+          if [ -f "$IPA_PATH" ]; then
+            mv "$IPA_PATH" "./${PROJECT_NAME}.ipa"
+            echo "IPA_PATH=./${PROJECT_NAME}.ipa" >> $GITHUB_ENV
+          else
+            # 尝试查找其他可能的 IPA 文件
+            IPA_FILE=$(ls "${{ runner.temp }}/export"/*.ipa 2>/dev/null | head -n 1)
+            if [ -n "$IPA_FILE" ]; then
+              mv "$IPA_FILE" "./${PROJECT_NAME}.ipa"
+              echo "IPA_PATH=./${PROJECT_NAME}.ipa" >> $GITHUB_ENV
+            else
+              echo "::error::未找到 IPA 文件"
+              exit 1
+            fi
+          fi
+          
+          echo "IPA found at: ${{ env.IPA_PATH }}"
+          ls -la .
+      
+      # 6. 上传未签名的 IPA 作为 Artifact（备份）
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-unsigned
+          path: ios/*.ipa
+          if-no-files-found: error

@@ -1,0 +1,151 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:  # 手动触发
+    inputs:
+      build_type:
+        description: '构建类型'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk          # 调试版 APK（可直接安装）
+          - aab          # 发布版 AAB（用于应用商店）
+
+env:
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  JAVA_VERSION: '17'  # Android Gradle 插件需要 Java 17
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Android 构建可以在 Ubuntu 上运行，更快且免费
+    
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. 设置 Node.js 24
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+      
+      # 3. 设置 Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+      
+      # 🔧 安装 Yarn（如果还没有）
+      - name: Install Yarn
+        run: |
+          npm install -g yarn
+          yarn --version
+      
+      # 🔧 替换点：使用 yarn 安装依赖
+      - name: Install dependencies with Yarn
+        run: |
+          # 如果有 yarn.lock，使用 yarn install --frozen-lockfile（等同于 npm ci）
+          if [ -f "yarn.lock" ]; then
+            echo "📦 使用 yarn.lock 安装依赖（锁定版本）"
+            yarn install --frozen-lockfile
+          else
+            echo "📦 没有 yarn.lock，生成新的 lock 文件"
+            yarn install
+          fi
+
+      # 5. 生成 Android 原生文件夹（如果需要）
+      - name: Generate Android native folder
+        run: npx expo prebuild --clean --platform android
+      
+      # 🔧 关键修复：添加缺失的 Maven 仓库
+      - name: Fix async-storage dependency
+        run: |
+          # 备份原文件
+          cp android/build.gradle android/build.gradle.bak
+          
+          # 在 allprojects.repositories 中添加 jitpack 和 mavenCentral
+          cat >> android/build.gradle << 'EOF'
+          
+          // 🔧 添加修复 async-storage 依赖的仓库
+          allprojects {
+              repositories {
+                  mavenLocal()
+                  google()
+                  mavenCentral()
+                  maven { url 'https://www.jitpack.io' }
+                  // 添加 async-storage 需要的特定仓库
+                  maven { url 'https://repo1.maven.org/maven2' }
+              }
+          }
+          EOF
+          
+          echo "✅ 已修复 android/build.gradle"
+      
+      # 可选：检查并修复 settings.gradle
+      - name: Check settings.gradle
+        run: |
+          if [ -f "android/settings.gradle" ]; then
+            echo "settings.gradle 存在"
+            cat android/settings.gradle | head -20
+          fi
+          
+          if [ -f "android/settings.gradle.kts" ]; then
+            echo "settings.gradle.kts 存在"
+            cat android/settings.gradle.kts | head -20
+          fi
+
+
+      # 6. 构建 APK/AAB
+      - name: Build Android app
+        run: |
+          cd android
+          
+          # 给 gradlew 执行权限
+          chmod +x gradlew
+          
+          # 根据输入类型构建
+          if [ "${{ github.event.inputs.build_type }}" = "apk" ]; then
+            echo "📦 构建 APK..."
+            ./gradlew assembleRelease
+            APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          else
+            echo "📦 构建 AAB..."
+            ./gradlew bundleRelease
+            APK_PATH="android/app/build/outputs/bundle/release/app-release.aab"
+          fi
+
+          cd ..
+          
+          # 检查构建产物
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ 构建成功: $APK_PATH"
+            echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
+          else
+            echo "❌ 构建失败，未找到产物"
+            exit 1
+          fi
+
+      # 🔧 修复点1：使用正确的路径上传 APK
+      - name: Upload APK artifact
+        if: github.event.inputs.build_type == 'apk'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-apk
+          # 修正路径：去掉 android/ 前缀，因为已经在 android 目录内
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      
+      # 🔧 修复点2：使用正确的路径上传 AAB
+      - name: Upload AAB artifact
+        if: github.event.inputs.build_type == 'aab'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-aab
+          # 修正路径：去掉 android/ 前缀，因为已经在 android 目录内
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
