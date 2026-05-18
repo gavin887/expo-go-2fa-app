@@ -130,12 +130,6 @@ jobs:
             exit 1
           fi
 
-      - name: Releasing using Hub
-        if: github.event.inputs.build_type == 'apk'
-        uses: sangatdesai/release-apk@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
-          APP_FOLDER: android/app
 
       # 🔧 修复点1：使用正确的路径上传 APK
       - name: Upload APK artifact
@@ -156,3 +150,12 @@ jobs:
           # 修正路径：去掉 android/ 前缀，因为已经在 android 目录内
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
+      - name: Releasing using Hub
+        if: github.event.inputs.build_type == 'apk'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "android/app/build/outputs/apk/release/*.apk"
+          token: ${{ github.token }}
+          generateReleaseNotes: true
+
