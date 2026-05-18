@@ -129,25 +129,25 @@ jobs:
           # 检查是否已经配置过 ABI splits
           if ! grep -q "abiFilters" "$BUILD_GRADLE"; then
             sed -i '/android {/a\
-        splits {\
-            abi {\
-                enable true\
-                reset()\
-                include '\''arm64-v8a'\'', '\''x86_64'\''\
-                universalApk true\
-            }\
-        }' "$BUILD_GRADLE"
+              splits { \
+                abi { \
+                  enable true\
+                  reset()\
+                  include '\''arm64-v8a'\'', '\''x86_64'\''\
+                  universalApk true\
+              }\
+            }' "$BUILD_GRADLE"
             
             # 配置输出的 APK 文件名
             sed -i '/android {/a\
-        applicationVariants.all { variant ->\
-            variant.outputs.each { output ->\
-                def abi = output.getFilter(com.android.build.OutputFile.ABI)\
-                if (abi != null) {\
-                    output.outputFileName = "${project.name}-${abi}.apk"\
+              applicationVariants.all { variant ->\
+                variant.outputs.each { output ->\
+                    def abi = output.getFilter(com.android.build.OutputFile.ABI)\
+                    if (abi != null) {\
+                        output.outputFileName = "${project.name}-${abi}.apk"\
+                    }\
                 }\
-            }\
-        }' "$BUILD_GRADLE"
+            }' "$BUILD_GRADLE"
           fi
           
           echo "✅ 已配置 ABI splits"
