@@ -123,60 +123,34 @@ jobs:
           find . -name "app.json" -o -name "app.config.js" -o -name "metro.config.js" -o -name "package.json" | xargs md5sum | md5sum | cut -d' ' -f1 > android/.prebuild_hash
           echo "✅ Android 文件夹已生成"
 
-      # 7. 动态注入/修正 ABI splits 配置（精准校验 + 强制覆盖）
-      - name: Ensure correct ABI splits in build.gradle
+      - name: Configure ABI splits in app/build.gradle
         run: |
-          echo "🔧 校验 android/app/build.gradle 中的 splits 配置..."
-          
-          # Step 1: 检查是否存在 splits 块
-          if ! grep -q "splits {" android/app/build.gradle; then
-            echo "📝 未找到 splits 块，正在注入..."
-            # 直接在 packagingOptions { 前插入
-            sed -i '/packagingOptions {/i \
-    splits {\\
-        abi {\\
-            reset()\\
-            include \x27arm64-v8a\x27, \x27x86_64\x27\\
-            universalApk false\\
-        }\\
-    }\\
-' android/app/build.gradle
-            echo "✅ splits 块已注入"
-          else
-            echo "🔍 检测到 splits 块，正在校验内容..."
-            # Step 2: 检查是否包含正确 include 和 universalApk false
-            if grep -q "include.*arm64-v8a.*x86_64" android/app/build.gradle && \
-               grep -q "universalApk[[:space:]]*false" android/app/build.gradle; then
-              echo "✅ splits 配置正确（含 arm64-v8a/x86_64 且 universalApk false）"
-            else
-              echo "⚠️ splits 配置不正确，正在强制覆盖..."
-              # Step 3: 删除现有 splits 块（从 splits { 到 }），再插入新块
-              # 使用 awk 删除：匹配 splits { 开始，直到遇到独立 } 结束（防嵌套）
-              awk '
-              /splits[[:space:]]*{/ { in_splits=1; next }
-              in_splits && /^[[:space:]]*}/ { in_splits=0; next }
-              !in_splits
-              ' android/app/build.gradle > /tmp/build.gradle.tmp && \
-              mv /tmp/build.gradle.tmp android/app/build.gradle && \
-              echo "✅ 旧 splits 块已删除"
-              
-              # 插入新 splits 块
-              sed -i '/packagingOptions {/i \
-    splits {\\
-        abi {\\
-            reset()\\
-            include \x27arm64-v8a\x27, \x27x86_64\x27\\
-            universalApk false\\
-        }\\
-    }\\
-' android/app/build.gradle
-              echo "✅ splits 块已覆盖为正确配置"
-            fi
+          BUILD_GRADLE="android/app/build.gradle"
+          # 检查是否已经配置过 ABI splits
+          if ! grep -q "abiFilters" "$BUILD_GRADLE"; then
+            sed -i '/android {/a\
+        splits {\
+            abi {\
+                enable true\
+                reset()\
+                include '\''arm64-v8a'\'', '\''x86_64'\''\
+                universalApk true\
+            }\
+        }' "$BUILD_GRADLE"
+            
+            # 配置输出的 APK 文件名
+            sed -i '/android {/a\
+        applicationVariants.all { variant ->\
+            variant.outputs.each { output ->\
+                def abi = output.getFilter(com.android.build.OutputFile.ABI)\
+                if (abi != null) {\
+                    output.outputFileName = "${project.name}-${abi}.apk"\
+                }\
+            }\
+        }' "$BUILD_GRADLE"
           fi
           
-          # Step 4: 最终验证
-          echo "📋 最终 splits 配置："
-          sed -n '/splits {/,/^}/p' android/app/build.gradle | sed 's/^/  /'
+          echo "✅ 已配置 ABI splits"
 
       # 6. 构建 ABI-specific APK（需 build.gradle 中配置 splits）
       - name: Build ABI-specific APK
@@ -198,7 +172,7 @@ jobs:
           cd ..
           
           # 精确匹配 splits 输出路径
-          APK_PATH="android/app/build/outputs/apk/release/app-${{ matrix.abi }}-release.apk"
+          APK_PATH="android/app/build/outputs/apk/release/${{project.name}}-${{ matrix.abi }}.apk"
           if [ -f "$APK_PATH" ]; then
             echo "✅ 构建成功: ${{ matrix.abi }} APK ($APK_PATH)"
             echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
@@ -213,18 +187,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.abi }}-${{ github.ref_name }}
-          path: android/app/build/outputs/apk/release/*${{ matrix.abi }}*.apk
+          path: android/app/build/outputs/apk/release/${{project.name}}-${{ matrix.abi }}.apk
           if-no-files-found: error
           compression-level: 0  # 不压缩，加快上传速度
-          retention-days: 7
-
-      - name: Upload universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-universal
-          path: android/app/build/outputs/apk/release/*-universal*.apk
-          if-no-files-found: warn
-          compression-level: 0
           retention-days: 7
 
   # 保存 Gradle 缓存以便后续作业使用
