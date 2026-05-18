@@ -152,6 +152,10 @@ jobs:
           
           echo "✅ 已配置 ABI splits"
 
+          echo "------- build.gradle start -------"
+          cat "$BUILD_GRADLE"
+          echo "------- build.gradle end -------"
+
       # 6. 构建 ABI-specific APK（需 build.gradle 中配置 splits）
       - name: Build ABI-specific APK
         run: |
