@@ -130,6 +130,13 @@ jobs:
             exit 1
           fi
 
+      - name: Releasing using Hub
+        if: github.event.inputs.build_type == 'apk'
+        uses: sangatdesai/release-apk@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          APP_FOLDER: android/app
+
       # 🔧 修复点1：使用正确的路径上传 APK
       - name: Upload APK artifact
         if: github.event.inputs.build_type == 'apk'
