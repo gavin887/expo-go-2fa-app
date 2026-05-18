@@ -123,33 +123,89 @@ jobs:
           find . -name "app.json" -o -name "app.config.js" -o -name "metro.config.js" -o -name "package.json" | xargs md5sum | md5sum | cut -d' ' -f1 > android/.prebuild_hash
           echo "✅ Android 文件夹已生成"
 
-      # 6. 并行构建优化
-      - name: Build specific ABI
+      # 7. 动态注入/修正 ABI splits 配置（精准校验 + 强制覆盖）
+      - name: Ensure correct ABI splits in build.gradle
+        run: |
+          echo "🔧 校验 android/app/build.gradle 中的 splits 配置..."
+          
+          # Step 1: 检查是否存在 splits 块
+          if ! grep -q "splits {" android/app/build.gradle; then
+            echo "📝 未找到 splits 块，正在注入..."
+            # 直接在 packagingOptions { 前插入
+            sed -i '/packagingOptions {/i \
+    splits {\\
+        abi {\\
+            reset()\\
+            include \x27arm64-v8a\x27, \x27x86_64\x27\\
+            universalApk false\\
+        }\\
+    }\\
+' android/app/build.gradle
+            echo "✅ splits 块已注入"
+          else
+            echo "🔍 检测到 splits 块，正在校验内容..."
+            # Step 2: 检查是否包含正确 include 和 universalApk false
+            if grep -q "include.*arm64-v8a.*x86_64" android/app/build.gradle && \
+               grep -q "universalApk[[:space:]]*false" android/app/build.gradle; then
+              echo "✅ splits 配置正确（含 arm64-v8a/x86_64 且 universalApk false）"
+            else
+              echo "⚠️ splits 配置不正确，正在强制覆盖..."
+              # Step 3: 删除现有 splits 块（从 splits { 到 }），再插入新块
+              # 使用 awk 删除：匹配 splits { 开始，直到遇到独立 } 结束（防嵌套）
+              awk '
+              /splits[[:space:]]*{/ { in_splits=1; next }
+              in_splits && /^[[:space:]]*}/ { in_splits=0; next }
+              !in_splits
+              ' android/app/build.gradle > /tmp/build.gradle.tmp && \
+              mv /tmp/build.gradle.tmp android/app/build.gradle && \
+              echo "✅ 旧 splits 块已删除"
+              
+              # 插入新 splits 块
+              sed -i '/packagingOptions {/i \
+    splits {\\
+        abi {\\
+            reset()\\
+            include \x27arm64-v8a\x27, \x27x86_64\x27\\
+            universalApk false\\
+        }\\
+    }\\
+' android/app/build.gradle
+              echo "✅ splits 块已覆盖为正确配置"
+            fi
+          fi
+          
+          # Step 4: 最终验证
+          echo "📋 最终 splits 配置："
+          sed -n '/splits {/,/^}/p' android/app/build.gradle | sed 's/^/  /'
+
+      # 6. 构建 ABI-specific APK（需 build.gradle 中配置 splits）
+      - name: Build ABI-specific APK
         run: |
           cd android
           chmod +x gradlew
           echo "📦 构建 ABI: ${{ matrix.abi }}"
           
-          # 使用并行编译和守护进程
+          # 执行 assembleRelease（ABI splits 由 build.gradle 控制）
           ./gradlew assembleRelease \
-            -Pandroid.injected.build.abi=${{ matrix.abi }} \
             -Dorg.gradle.jvmargs=-Xmx3072m \
             -Dorg.gradle.parallel=true \
             -Dorg.gradle.caching=true \
             -Dorg.gradle.daemon=true \
             --build-cache \
             --parallel \
-            --no-daemon  # GitHub Actions 中使用 --no-daemon 避免进程残留
+            --no-daemon
           
           cd ..
           
-          # 设置产物路径
-          APK_PATH="android/app/build/outputs/apk/release/*${{ matrix.abi }}*.apk"
-          if ls $APK_PATH 1> /dev/null 2>&1; then
-            echo "✅ 构建成功: ${{ matrix.abi }}"
+          # 精确匹配 splits 输出路径
+          APK_PATH="android/app/build/outputs/apk/release/app-${{ matrix.abi }}-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ 构建成功: ${{ matrix.abi }} APK ($APK_PATH)"
             echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
+            echo "BUILD_ARTIFACT_TYPE=apk" >> $GITHUB_ENV
           else
-            echo "❌ 构建失败，未找到产物"
+            echo "❌ 构建完成但未找到 ABI-specific APK: $APK_PATH"
+            ls -la android/app/build/outputs/apk/release/
             exit 1
           fi
 
