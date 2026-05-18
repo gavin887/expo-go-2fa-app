@@ -13,6 +13,15 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "production-splits": {
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "ENABLE_ABI_SPLITS": "true"
+        }
+      },
+      "distribution": "internal"
     }
   },
   "submit": {

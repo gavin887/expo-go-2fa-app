@@ -1,161 +1,242 @@
-name: Build Android APK
+name: Build Android APK with ABI Split
 
 on:
-  workflow_dispatch:  # 手动触发
-    inputs:
-      build_type:
-        description: '构建类型'
-        required: true
-        default: 'apk'
-        type: choice
-        options:
-          - apk          # 调试版 APK（可直接安装）
-          - aab          # 发布版 AAB（用于应用商店）
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:  # 允许手动触发
 
 env:
+  JAVA_VERSION: '17'
   NODE_VERSION: '24'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  JAVA_VERSION: '17'  # Android Gradle 插件需要 Java 17
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Android 构建可以在 Ubuntu 上运行，更快且免费
-    
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, x86_64]
+      fail-fast: false  # 一个失败不停止其他构建
     steps:
-      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      # 2. 设置 Node.js 24
+
+      # 1. 缓存 Node.js 依赖
+      - name: Cache Node.js modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            .yarn/cache
+          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+            ${{ runner.os }}-node-
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-      
-      # 3. 设置 Java
+          cache: 'yarn'  # GitHub 原生缓存
+
+      - name: Install dependencies with Yarn
+        run: |
+          if [ -f "yarn.lock" ]; then
+            echo "📦 使用 yarn.lock 安装依赖（锁定版本）"
+            yarn install --frozen-lockfile --cache-folder .yarn/cache
+          fi
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
-      
-      # 🔧 安装 Yarn（如果还没有）
-      - name: Install Yarn
-        run: |
-          npm install -g yarn
-          yarn --version
-      
-      # 🔧 替换点：使用 yarn 安装依赖
+
+      # 2. 缓存 Gradle 依赖
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/build.gradle', 'android/app/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+            ${{ runner.os }}-
+
+      # 3. 缓存 Expo 构建缓存
+      - name: Cache Expo prebuild
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/.expo
+            node_modules/.cache/expo
+          key: ${{ runner.os }}-expo-${{ hashFiles('app.json', 'app.config.js', 'metro.config.js') }}
+          restore-keys: |
+            ${{ runner.os }}-expo-
+
+      # 4. 缓存 Android SDK 和构建工具
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/android-sdk
+            /usr/local/lib/android/sdk
+          key: ${{ runner.os }}-android-sdk-${{ env.JAVA_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+
       - name: Install dependencies with Yarn
         run: |
-          # 如果有 yarn.lock，使用 yarn install --frozen-lockfile（等同于 npm ci）
           if [ -f "yarn.lock" ]; then
             echo "📦 使用 yarn.lock 安装依赖（锁定版本）"
-            yarn install --frozen-lockfile
+            yarn install --frozen-lockfile --cache-folder .yarn/cache
+          fi
+
+      # 5. 优化：只在需要时重新生成 android 文件夹
+      - name: Check if prebuild needed
+        id: check_prebuild
+        run: |
+          # 检查 android 文件夹是否存在且配置未变化
+          if [ -d "android" ] && [ -f "android/.prebuild_hash" ]; then
+            CURRENT_HASH=$(find . -name "app.json" -o -name "app.config.js" -o -name "metro.config.js" -o -name "package.json" | xargs md5sum | md5sum | cut -d' ' -f1)
+            CACHED_HASH=$(cat android/.prebuild_hash 2>/dev/null || echo "")
+            if [ "$CURRENT_HASH" = "$CACHED_HASH" ]; then
+              echo "prebuild_needed=false" >> $GITHUB_OUTPUT
+              echo "✅ 使用缓存的 android 文件夹"
+            else
+              echo "prebuild_needed=true" >> $GITHUB_OUTPUT
+              echo "🔄 prebuild 配置已变化，需要重新生成"
+            fi
           else
-            echo "📦 没有 yarn.lock，生成新的 lock 文件"
-            yarn install
+            echo "prebuild_needed=true" >> $GITHUB_OUTPUT
+            echo "🆕 首次构建，需要生成 android 文件夹"
           fi
 
-      # 5. 生成 Android 原生文件夹（如果需要）
       - name: Generate Android native folder
-        run: npx expo prebuild --clean --platform android
-      
-      # 🔧 关键修复：添加缺失的 Maven 仓库
-      - name: Fix async-storage dependency
+        if: steps.check_prebuild.outputs.prebuild_needed == 'true'
         run: |
-          # 备份原文件
-          cp android/build.gradle android/build.gradle.bak
-          
-          # 在 allprojects.repositories 中添加 jitpack 和 mavenCentral
-          cat >> android/build.gradle << 'EOF'
-          
-          // 🔧 添加修复 async-storage 依赖的仓库
-          allprojects {
-              repositories {
-                  mavenLocal()
-                  google()
-                  mavenCentral()
-                  maven { url 'https://www.jitpack.io' }
-                  // 添加 async-storage 需要的特定仓库
-                  maven { url 'https://repo1.maven.org/maven2' }
-              }
-          }
-          EOF
-          
-          echo "✅ 已修复 android/build.gradle"
-      
-      # 可选：检查并修复 settings.gradle
-      - name: Check settings.gradle
-        run: |
-          if [ -f "android/settings.gradle" ]; then
-            echo "settings.gradle 存在"
-            cat android/settings.gradle | head -20
-          fi
-          
-          if [ -f "android/settings.gradle.kts" ]; then
-            echo "settings.gradle.kts 存在"
-            cat android/settings.gradle.kts | head -20
-          fi
+          npx expo prebuild --clean --platform android
+          # 保存配置哈希
+          find . -name "app.json" -o -name "app.config.js" -o -name "metro.config.js" -o -name "package.json" | xargs md5sum | md5sum | cut -d' ' -f1 > android/.prebuild_hash
+          echo "✅ Android 文件夹已生成"
 
-
-      # 6. 构建 APK/AAB
-      - name: Build Android app
+      # 6. 并行构建优化
+      - name: Build specific ABI
         run: |
           cd android
-          
-          # 给 gradlew 执行权限
           chmod +x gradlew
+          echo "📦 构建 ABI: ${{ matrix.abi }}"
           
-          # 根据输入类型构建
-          if [ "${{ github.event.inputs.build_type }}" = "apk" ]; then
-            echo "📦 构建 APK..."
-            ./gradlew assembleRelease
-            APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
-          else
-            echo "📦 构建 AAB..."
-            ./gradlew bundleRelease
-            APK_PATH="android/app/build/outputs/bundle/release/app-release.aab"
-          fi
-
+          # 使用并行编译和守护进程
+          ./gradlew assembleRelease \
+            -Pandroid.injected.build.abi=${{ matrix.abi }} \
+            -Dorg.gradle.jvmargs=-Xmx3072m \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.caching=true \
+            -Dorg.gradle.daemon=true \
+            --build-cache \
+            --parallel \
+            --no-daemon  # GitHub Actions 中使用 --no-daemon 避免进程残留
+          
           cd ..
           
-          # 检查构建产物
-          if [ -f "$APK_PATH" ]; then
-            echo "✅ 构建成功: $APK_PATH"
+          # 设置产物路径
+          APK_PATH="android/app/build/outputs/apk/release/app-${ABI}-*.apk"
+          if ls $APK_PATH 1> /dev/null 2>&1; then
+            echo "✅ 构建成功: ${{ matrix.abi }}"
             echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
           else
             echo "❌ 构建失败，未找到产物"
             exit 1
           fi
 
-
-      # 🔧 修复点1：使用正确的路径上传 APK
-      - name: Upload APK artifact
-        if: github.event.inputs.build_type == 'apk'
+      - name: Upload ABI-specific APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-apk
-          # 修正路径：去掉 android/ 前缀，因为已经在 android 目录内
-          path: android/app/build/outputs/apk/release/*.apk
+          name: app-${{ matrix.abi }}
+          path: android/app/build/outputs/apk/release/*-${{ matrix.abi }}*.apk
           if-no-files-found: error
-      
-      # 🔧 修复点2：使用正确的路径上传 AAB
-      - name: Upload AAB artifact
-        if: github.event.inputs.build_type == 'aab'
+          compression-level: 0  # 不压缩，加快上传速度
+          retention-days: 7
+
+      - name: Upload universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-aab
-          # 修正路径：去掉 android/ 前缀，因为已经在 android 目录内
-          path: android/app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
+          name: app-universal
+          path: android/app/build/outputs/apk/release/*-universal*.apk
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 7
 
-      - name: Releasing using Hub
-        if: github.event.inputs.build_type == 'apk'
+  # 保存 Gradle 缓存以便后续作业使用
+  save-gradle-cache:
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-wrapper-
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded files
+        run: |
+          echo "📦 下载的产物："
+          ls -la artifacts/
+          find artifacts -name "*.apk" -type f
+
+      - name: Create Release with all APKs
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "android/app/build/outputs/apk/release/*.apk"
+          artifacts: "artifacts/**/*.apk"
           token: ${{ github.token }}
           generateReleaseNotes: true
+          allowUpdates: true
 
+  # 清理旧缓存
+  cleanup:
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Cleanup old caches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const caches = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            for (const cache of caches.data.actions_caches) {
+              if (cache.last_accessed_at < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) {
+                await github.rest.actions.deleteActionsCacheById({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  cache_id: cache.id,
+                });
+                console.log(`Deleted cache: ${cache.key}`);
+              }
+            }
