@@ -144,7 +144,7 @@ jobs:
                 variant.outputs.each { output ->\
                     def abi = output.getFilter(com.android.build.OutputFile.ABI)\
                     if (abi != null) {\
-                        output.outputFileName = "${project.name}-${abi}.apk"\
+                        output.outputFileName = "app-${abi}.apk"\
                     }\
                 }\
             }' "$BUILD_GRADLE"
@@ -172,7 +172,7 @@ jobs:
           cd ..
           
           # 精确匹配 splits 输出路径
-          APK_PATH="android/app/build/outputs/apk/release/${{project.name}}-${{ matrix.abi }}.apk"
+          APK_PATH="android/app/build/outputs/apk/release/app-${{ matrix.abi }}.apk"
           if [ -f "$APK_PATH" ]; then
             echo "✅ 构建成功: ${{ matrix.abi }} APK ($APK_PATH)"
             echo "BUILD_ARTIFACT_PATH=$APK_PATH" >> $GITHUB_ENV
@@ -187,7 +187,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.abi }}-${{ github.ref_name }}
-          path: android/app/build/outputs/apk/release/${{project.name}}-${{ matrix.abi }}.apk
+          path: android/app/build/outputs/apk/release/app-${{ matrix.abi }}.apk
           if-no-files-found: error
           compression-level: 0  # 不压缩，加快上传速度
           retention-days: 7
