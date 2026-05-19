@@ -5,12 +5,20 @@ const withAndroidSplits = (config) => {
         const buildGradle = config.modResults.contents;
 
         const splitsConfig = `
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            if (abi != null) {
+                output.outputFileName = "app-\${abi}-debug.apk"
+            }
+        }
+    }
+
     splits {
         abi {
-            enable System.getenv('ENABLE_ABI_SPLITS') == 'true'
+            enable true
             reset()
-            // include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            include "arm64-v8a"
+            include  "arm64-v8a", "x86_64"
             universalApk false
         }
     }
